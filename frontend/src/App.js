@@ -1,0 +1,99 @@
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import './styles/global.css'; 
+import LoginPage from './pages/LoginPage';
+import Sidebar from './components/Sidebar';
+import GestionMdp from './pages/GestionMdp';
+import Dashboard from './pages/Dashboard';
+import ListeAgents from './pages/ListeAgents';
+import ListeAppareils from './pages/ListeAppareils';
+import HistoriqueAppareil from './pages/HistoriqueAppareil';
+import AjouterAppareil from './pages/AjouterAppareil';
+import ListeVoyages from './pages/ListeVoyages';
+import Recettes from './pages/Recettes';
+import useAutoLogout from './hooks/useAutoLogout';
+import AjouterLigne from './pages/AjouterLigne';
+import GestionRoles from './pages/GestionRoles';
+import ListeLignes from './pages/ListeLignes';
+
+import RecettesController from './pages/RecettesController';
+import RecettesJournal from './pages/RecettesJournal';
+import RecettesSegments from './pages/RecettesSegments';
+import GestionMdp_info from './pages/GestionMdp_info';
+
+export default function App() {
+  const [user, setUser] = useState(null);
+
+  const handleLogout = () => setUser(null);
+
+  useAutoLogout(handleLogout, 15);
+
+  if (!user) {
+    return <LoginPage onLogin={(userData) => setUser(userData)} />;
+  }
+
+  const getHomePage = () => {
+    switch (user.role) {
+      case 'informatique': return <GestionRoles />;
+      case 'direction':    return <Dashboard user={user} />;
+      case 'controleur':   return <RecettesController />; // ✅ ajouté
+      default: return (
+        <div style={{ textAlign: 'center', marginTop: 100 }}>
+          <h2 style={{ color: '#C0392B' }}>⚠ Accès refusé</h2>
+          <p style={{ color: '#8A94A6', marginTop: 8 }}>
+            Votre rôle n'est pas autorisé à accéder à cette interface.
+          </p>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <Router>
+      <div className="layout">
+        <Sidebar user={user} onLogout={handleLogout} />
+        <div className="main-content">
+          <Routes>
+            <Route path="/" element={getHomePage()} />
+
+            {/* ── Routes Direction ── */}
+            {user.role === 'direction' && (
+              <>
+                <Route path="/agents"           element={<ListeAgents />} />
+                <Route path="/appareils"        element={<ListeAppareils />} />
+                <Route path="/historique"       element={<HistoriqueAppareil />} />
+                <Route path="/ajouter-appareil" element={<AjouterAppareil />} />
+                <Route path="/voyages"          element={<ListeVoyages />} />
+                <Route path="/recettes"         element={<Recettes />} />
+                <Route path="/ajouter-ligne"    element={<AjouterLigne />} />
+                <Route path="/gestion-mdp"      element={<GestionMdp />} />
+                <Route path="/lignes"           element={<ListeLignes />} />
+              </>
+            )}
+
+            {/* ── Routes Controleur ── */}
+            {user.role === 'controleur' && (
+              <>
+                <Route path="/analytique"  element={<RecettesController />} />
+                <Route path="/journal"     element={<RecettesJournal />} />
+                <Route path="/segments"    element={<RecettesSegments />} />
+                
+              </>
+            )}
+
+            {/* ── Routes Informatique ── */}
+            {user.role === 'informatique' && (
+              <>
+                <Route path="/gestion-roles" element={<GestionRoles />} />
+                <Route path="/gestion-mdp"      element={<GestionMdp_info />} />
+
+              </>
+            )}
+
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </div>
+      </div>
+    </Router>
+  );
+}
