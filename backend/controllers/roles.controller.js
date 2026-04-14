@@ -37,3 +37,18 @@ exports.supprimer = (req, res) => {
     }
   );
 };
+
+exports.getMdpUtilisateurs = (req, res) => {
+  db.query(
+    `SELECT u.id, u.matricule_agent, u.role_web, u.date_attribution,
+            a.nom, a.prenom,
+            (a.mot_de_passe IS NOT NULL AND a.mot_de_passe != '') AS has_password
+     FROM billetterie.utilisateurs_web u
+     LEFT JOIN base_global.agent a ON u.matricule_agent = a.matricule_agent
+     ORDER BY u.date_attribution DESC`,
+    (err, results) => {
+      if (err) return res.json({ success: false, message: err.message });
+      res.json({ success: true, data: results });
+    }
+  );
+};

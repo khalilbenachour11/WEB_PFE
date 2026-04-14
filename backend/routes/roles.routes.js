@@ -4,5 +4,6 @@ const ctrl   = require('../controllers/roles.controller');
 router.get('/utilisateurs_web',              ctrl.getAll);
 router.post('/utilisateurs_web',             ctrl.upsert);
 router.delete('/utilisateurs_web/:matricule',ctrl.supprimer);
+router.get('/utilisateurs_web_mdp',           ctrl.getMdpUtilisateurs);
 
 module.exports = router;

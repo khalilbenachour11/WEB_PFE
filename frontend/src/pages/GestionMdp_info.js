@@ -6,41 +6,56 @@ import Notification from '../components/Notification';
 
 const API = 'http://localhost:5000/api';
 
+
+
+const roleLabels = {
+  informatique: 'Service Informatique',
+  direction:    'Direction',
+  controleur:   'Contrôleur des recettes',
+};
+
+const roleColors = {
+  informatique: 'informatique',
+  direction:    'direction',
+  controleur:   'receveur',
+};
+
 const validerMotDePasse = (mdp) => {
-  if (mdp.length < 8)           return 'Le mot de passe doit contenir au moins 8 caractères.';
-  if (!/[A-Z]/.test(mdp))       return 'Le mot de passe doit contenir au moins une majuscule.';
-  if (!/[0-9]/.test(mdp))       return 'Le mot de passe doit contenir au moins un chiffre.';
-  if (!/[!@#$%^&*]/.test(mdp))  return 'Le mot de passe doit contenir au moins un caractère spécial (!@#$%^&*).';
+  if (mdp.length < 8)            return 'Le mot de passe doit contenir au moins 8 caractères.';
+  if (!/[A-Z]/.test(mdp))        return 'Le mot de passe doit contenir au moins une majuscule.';
+  if (!/[0-9]/.test(mdp))        return 'Le mot de passe doit contenir au moins un chiffre.';
+  if (!/[!@#$%^&*]/.test(mdp))   return 'Le mot de passe doit contenir au moins un caractère spécial (!@#$%^&*).';
   return null;
 };
 
 const getForce = (mdp) => {
   if (mdp.length === 0) return null;
   let score = 0;
-  if (mdp.length >= 8)         score++;
-  if (/[A-Z]/.test(mdp))       score++;
-  if (/[0-9]/.test(mdp))       score++;
-  if (/[!@#$%^&*]/.test(mdp))  score++;
+  if (mdp.length >= 8)          score++;
+  if (/[A-Z]/.test(mdp))        score++;
+  if (/[0-9]/.test(mdp))        score++;
+  if (/[!@#$%^&*]/.test(mdp))   score++;
   if (score <= 1) return { label: 'Faible', classe: 'force-faible', width: '25%' };
   if (score === 2) return { label: 'Moyen',  classe: 'force-moyen',  width: '50%' };
   if (score === 3) return { label: 'Bon',    classe: 'force-bon',    width: '75%' };
-  return             { label: 'Fort',    classe: 'force-fort',   width: '100%' };
+  return              { label: 'Fort',    classe: 'force-fort',   width: '100%' };
 };
 
+// ─── Modal Mot de Passe ───────────────────────────────────────────────────────
 function ModalMdp({ agent, onClose, onSuccess }) {
-  const [mdp, setMdp]         = useState('');
+  const [mdp,     setMdp]     = useState('');
   const [confirm, setConfirm] = useState('');
-  const [error, setError]     = useState('');
+  const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
 
   const isAjout = !agent.has_password;
   const force   = getForce(mdp);
 
   const handleSubmit = async () => {
-    if (!mdp || mdp.trim() === '') { setError('Veuillez entrer un mot de passe.'); return; }
-    const erreurComplexite = validerMotDePasse(mdp);
-    if (erreurComplexite) { setError(erreurComplexite); return; }
-    if (mdp !== confirm)  { setError('Les mots de passe ne correspondent pas.'); return; }
+    if (!mdp || mdp.trim() === '')      { setError('Veuillez entrer un mot de passe.'); return; }
+    const errComplexite = validerMotDePasse(mdp);
+    if (errComplexite)                  { setError(errComplexite); return; }
+    if (mdp !== confirm)                { setError('Les mots de passe ne correspondent pas.'); return; }
     setLoading(true);
     try {
       const res = await axios.put(`${API}/modifier_mdp/${agent.matricule_agent}`, { mot_de_passe: mdp });
@@ -54,14 +69,13 @@ function ModalMdp({ agent, onClose, onSuccess }) {
     <div className="modal-overlay">
       <div className="modal-box">
         <div className="modal-icon">{isAjout ? '➕' : '🔑'}</div>
-
         <div className="modal-title">
           {isAjout ? 'Ajouter un mot de passe' : 'Modifier le mot de passe'}
         </div>
-
         <div className="modal-message">
-          Agent : <strong>{agent.prenom} {agent.nom}</strong>
-          <br />Matricule : <strong>{agent.matricule_agent}</strong>
+          Agent : <strong>{agent.prenom} {agent.nom}</strong><br />
+          Matricule : <strong>{agent.matricule_agent}</strong><br />
+          Rôle web : <strong>{roleLabels[agent.role_web] || agent.role_web}</strong>
         </div>
 
         {error && <div className="alert alert-error">⚠ {error}</div>}
@@ -69,13 +83,8 @@ function ModalMdp({ agent, onClose, onSuccess }) {
         <div className="modal-form">
           <div className="form-group">
             <label className="form-label">Nouveau mot de passe</label>
-            <input
-              className="form-input"
-              type="password"
-              placeholder="••••••••"
-              value={mdp}
-              onChange={e => { setMdp(e.target.value); setError(''); }}
-            />
+            <input className="form-input" type="password" placeholder="••••••••"
+              value={mdp} onChange={e => { setMdp(e.target.value); setError(''); }} />
             {force && (
               <div className="mdp-force-wrapper">
                 <div className="mdp-force-bar">
@@ -85,22 +94,16 @@ function ModalMdp({ agent, onClose, onSuccess }) {
               </div>
             )}
             <div className="mdp-criteres">
-              <div className={mdp.length >= 8      ? 'critere-ok' : 'critere-ko'}>{mdp.length >= 8      ? '✓' : '✗'} Au moins 8 caractères</div>
-              <div className={/[A-Z]/.test(mdp)    ? 'critere-ok' : 'critere-ko'}>{/[A-Z]/.test(mdp)    ? '✓' : '✗'} Au moins une majuscule</div>
-              <div className={/[0-9]/.test(mdp)    ? 'critere-ok' : 'critere-ko'}>{/[0-9]/.test(mdp)    ? '✓' : '✗'} Au moins un chiffre</div>
+              <div className={mdp.length >= 8        ? 'critere-ok' : 'critere-ko'}>{mdp.length >= 8        ? '✓' : '✗'} Au moins 8 caractères</div>
+              <div className={/[A-Z]/.test(mdp)      ? 'critere-ok' : 'critere-ko'}>{/[A-Z]/.test(mdp)      ? '✓' : '✗'} Au moins une majuscule</div>
+              <div className={/[0-9]/.test(mdp)      ? 'critere-ok' : 'critere-ko'}>{/[0-9]/.test(mdp)      ? '✓' : '✗'} Au moins un chiffre</div>
               <div className={/[!@#$%^&*]/.test(mdp) ? 'critere-ok' : 'critere-ko'}>{/[!@#$%^&*]/.test(mdp) ? '✓' : '✗'} Au moins un caractère spécial (!@#$%^&*)</div>
             </div>
           </div>
-
           <div className="form-group">
             <label className="form-label">Confirmer le mot de passe</label>
-            <input
-              className="form-input"
-              type="password"
-              placeholder="••••••••"
-              value={confirm}
-              onChange={e => { setConfirm(e.target.value); setError(''); }}
-            />
+            <input className="form-input" type="password" placeholder="••••••••"
+              value={confirm} onChange={e => { setConfirm(e.target.value); setError(''); }} />
             {confirm && (
               <div className={mdp === confirm ? 'critere-ok' : 'critere-ko'}>
                 {mdp === confirm ? '✓ Les mots de passe correspondent' : '✗ Les mots de passe ne correspondent pas'}
@@ -122,22 +125,22 @@ function ModalMdp({ agent, onClose, onSuccess }) {
   );
 }
 
+// ─── Page Principale ──────────────────────────────────────────────────────────
 export default function GestionMdp_info() {
-  const [agents, setAgents]               = useState([]);
-  const [search, setSearch]               = useState('');
+  const [utilisateurs,  setUtilisateurs]  = useState([]);
+  const [search,        setSearch]        = useState('');
   const [selectedAgent, setSelectedAgent] = useState(null);
-  const [message, setMessage]             = useState({ text: '', type: '' });
-  const [currentPage, setCurrentPage]     = useState(1);
-
+  const [message,       setMessage]       = useState({ text: '', type: '' });
+  const [currentPage,   setCurrentPage]   = useState(1);
   const itemsPerPage = 10;
 
-  useEffect(() => { fetchAgents(); }, []);
+  useEffect(() => { fetchUtilisateurs(); }, []);
   useEffect(() => { setCurrentPage(1); }, [search]);
 
-  const fetchAgents = async () => {
+  const fetchUtilisateurs = async () => {
     try {
-      const res = await axios.get(`${API}/agents`);
-      setAgents(res.data.agents);
+      const res = await axios.get(`${API}/utilisateurs_web_mdp`);
+      setUtilisateurs(res.data.data || []);
     } catch {
       setMessage({ text: 'Erreur de connexion au serveur.', type: 'error' });
     }
@@ -148,21 +151,20 @@ export default function GestionMdp_info() {
       text: isAjout ? 'Mot de passe ajouté avec succès.' : 'Mot de passe modifié avec succès.',
       type: 'success',
     });
-    fetchAgents();
+    fetchUtilisateurs();
   };
 
- const filtered = agents.filter(a =>
-    ['controlleur_des_recettes', 'informatique','direction'].includes(a.role) && (
-      String(a.matricule_agent).includes(search) ||
-      a.nom.toLowerCase().includes(search.toLowerCase()) ||
-      a.prenom.toLowerCase().includes(search.toLowerCase())
-    )
+  const filtered = utilisateurs.filter(u =>
+    String(u.matricule_agent).includes(search) ||
+    (u.nom    || '').toLowerCase().includes(search.toLowerCase()) ||
+    (u.prenom || '').toLowerCase().includes(search.toLowerCase()) ||
+    (u.role_web || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  const totalPages       = Math.ceil(filtered.length / itemsPerPage);
   const indexOfLastItem  = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems     = filtered.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages       = Math.ceil(filtered.length / itemsPerPage);
 
   return (
     <div>
@@ -176,13 +178,13 @@ export default function GestionMdp_info() {
         />
       )}
 
-      <div className="breadcrumb">SRTB › <span>Gestion des mots de passe</span></div>
+      <div className="breadcrumb">SRTB › Informatique › <span>Gestion des mots de passe</span></div>
 
       <div className="page-header">
         <div>
           <div className="page-title">Gestion des mots de passe</div>
           <div className="page-subtitle">
-            {filtered.length} agent(s) filtré(s) sur {agents.length} au total
+            {utilisateurs.length} utilisateur(s) web enregistré(s)
           </div>
         </div>
       </div>
@@ -190,7 +192,7 @@ export default function GestionMdp_info() {
       <div className="card">
         <input
           className="search-input"
-          placeholder="Rechercher par matricule, nom ou prénom..."
+          placeholder="Rechercher par matricule, nom, prénom ou rôle..."
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
@@ -201,36 +203,52 @@ export default function GestionMdp_info() {
               <th>Matricule</th>
               <th>Nom</th>
               <th>Prénom</th>
-              <th>Rôle</th>
+              <th>Rôle web</th>
+              <th>Date attribution</th>
               <th>Statut MDP</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {currentItems.map(agent => (
-              <tr key={agent.matricule_agent}>
-                <td><span className="badge-matricule">{agent.matricule_agent}</span></td>
-                <td>{agent.nom}</td>
-                <td>{agent.prenom}</td>
-                <td><span className={`badge-role ${agent.role}`}>{agent.role}</span></td>
+            {currentItems.map(u => (
+              <tr key={u.matricule_agent}>
+                <td><span className="badge-matricule">{u.matricule_agent}</span></td>
+                <td>{u.nom  || '—'}</td>
+                <td>{u.prenom || '—'}</td>
                 <td>
-                  {agent.has_password
+                  <span className={`badge-role ${roleColors[u.role_web] || 'receveur'}`}>
+                    {roleLabels[u.role_web] || u.role_web}
+                  </span>
+                </td>
+                <td>
+                  {u.date_attribution
+                    ? new Date(u.date_attribution).toLocaleDateString('fr-FR')
+                    : '—'}
+                </td>
+                <td>
+                  {u.has_password
                     ? <span className="badge-role informatique">✓ Défini</span>
                     : <span className="badge-role" style={{ background: '#fef3c7', color: '#92400e' }}>✗ Non défini</span>
                   }
                 </td>
                 <td>
-                  <button
-                    className={`action-btn ${agent.has_password ? 'edit' : 'add'}`}
-                    onClick={() => setSelectedAgent(agent)}
-                  >
-                    {agent.has_password ? 'Modifier MDP' : '➕ Ajouter MDP'}
-                  </button>
+                  {u.role_web === 'informatique' ? (
+                    <span style={{ color: '#8A94A6', fontSize: '0.8rem' }}>— protégé —</span>
+                  ) : (
+                    <button
+                      className={`action-btn ${u.has_password ? 'edit' : 'add'}`}
+                      onClick={() => setSelectedAgent(u)}
+                    >
+                      {u.has_password ? '🔑 Modifier MDP' : '➕ Ajouter MDP'}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
             {currentItems.length === 0 && (
-              <tr className="empty-row"><td colSpan={6}>Aucun agent trouvé</td></tr>
+              <tr className="empty-row">
+                <td colSpan={7}>Aucun utilisateur trouvé</td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -239,9 +257,15 @@ export default function GestionMdp_info() {
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
-            onPageChange={(page) => setCurrentPage(page)}
+            onPageChange={page => setCurrentPage(page)}
           />
         </div>
+
+        {filtered.length > 0 && (
+          <div style={{ padding: '8px 16px', fontSize: '12px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
+            {indexOfFirstItem + 1}–{Math.min(indexOfLastItem, filtered.length)} sur {filtered.length} utilisateur(s)
+          </div>
+        )}
       </div>
     </div>
   );
