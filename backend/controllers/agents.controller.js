@@ -27,3 +27,13 @@ exports.getAgentsLibres = (req, res) => {
     }
   );
 };
+
+exports.getAgences = (req, res) => {
+  db.query(
+    `SELECT code_agence, nom_agence, ville FROM base_global.agence ORDER BY code_agence`,
+    (err, results) => {
+      if (err) return res.json({ success: false, message: err.message });
+      res.json({ success: true, agences: results });
+    }
+  );
+};
