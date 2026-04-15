@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require('../database');
 const { insertLigneDetails, deleteLigneDetails } = require('../services/lignes.service');
 const { validateSegments, validateArrets }        = require('../validators/lignes.validator');
 
@@ -97,7 +97,7 @@ exports.ajouter = (req, res) => {
   if (!va.valid) return res.json({ success: false, message: va.error });
 
   db.query(
-    'INSERT INTO base_global.ligne (nom_ligne, point_depart, point_arrive, code_agence, id_billet) VALUES (?, ?, ?, ?, NULL)',
+    'INSERT INTO base_global.ligne (nom_ligne, point_depart, point_arrive, code_agence) VALUES (?, ?, ?, ?)',
     [nom_ligne, point_depart, point_arrive, code_agence],
     async (err, result) => {
       if (err) return res.json({ success: false, message: 'Erreur insertion ligne: ' + err.message });

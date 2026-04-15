@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require('../database');
 
 exports.getAll = (req, res) => {
   db.query(

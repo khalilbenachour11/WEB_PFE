@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require('../database');
 const { checkDoublon, insertSegmentsVoyage } = require('../services/voyages.service');
 
 exports.getVoyagesReceveurs = (req, res) => {

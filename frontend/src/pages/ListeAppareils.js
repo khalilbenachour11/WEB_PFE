@@ -7,6 +7,21 @@ import '../styles/global.css';
 const API = 'http://localhost:5000/api';
 
 // ══════════════════════════════════════════════════════════════════════════════
+// FORMATAGE DATE (heure tunisienne)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const formatDateOnly = (dateStr) => {
+  if (!dateStr) return '—';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Africa/Tunis',
+  });
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -304,16 +319,11 @@ export default function ListeAppareils() {
   const [appareilModifier,    setAppareilModifier]    = useState(null);
   const [message,             setMessage]             = useState({ text: '', type: '' });
 
-  // --- Pagination Logic ---
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   useEffect(() => { fetchAll(); }, []);
-
-  // Reset to page 1 when user searches
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
+  useEffect(() => { setCurrentPage(1); }, [search]);
 
   const fetchAll = async () => {
     try { const r = await axios.get(`${API}/appareils`);     setAppareils(r.data.appareils || []); } catch { setAppareils([]); }
@@ -339,11 +349,10 @@ export default function ListeAppareils() {
     (a.prenom  || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const indexOfLastItem = currentPage * itemsPerPage;
+  const totalPages       = Math.ceil(filtered.length / itemsPerPage);
+  const indexOfLastItem  = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filtered.slice(indexOfFirstItem, indexOfLastItem);
+  const currentItems     = filtered.slice(indexOfFirstItem, indexOfLastItem);
 
   return (
     <div>
@@ -394,7 +403,7 @@ export default function ListeAppareils() {
                     app.statut === 'en panne' ? 'red'       : 'receveur'
                   }`}>{app.statut}</span>
                 </td>
-                <td>{app.date_de_mise_en_service || '—'}</td>
+                <td>{formatDateOnly(app.date_de_mise_en_service)}</td>
                 <td>{app.nom ? `${app.prenom} ${app.nom}` : <span className="text-muted">Non attribué</span>}</td>
                 <td>{app.matricule_agent ? <span className="badge-matricule">{app.matricule_agent}</span> : '—'}</td>
                 <td>
@@ -409,12 +418,11 @@ export default function ListeAppareils() {
             )}
           </tbody>
         </table>
-        
-        {/* Pagination component logic */}
-        <Pagination 
-          currentPage={currentPage} 
-          totalPages={totalPages} 
-          onPageChange={(page) => setCurrentPage(page)} 
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(page) => setCurrentPage(page)}
         />
       </div>
     </div>

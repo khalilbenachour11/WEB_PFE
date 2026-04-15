@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require('../database');
 
 exports.getRecettes = async (req, res) => {
   try {

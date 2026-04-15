@@ -1,4 +1,5 @@
-const db = require('../config/database');
+const db = require('../database');
+
 const { hashPassword, comparePassword, isRoleAutorise } = require('../services/auth.service');
 
 exports.login = (req, res) => {

@@ -1,7 +1,4 @@
-/**
- * Middleware générique de validation.
- * Reçoit une fonction validateur(body) → { valid, error }
- */
+
 function validate(validatorFn) {
   return (req, res, next) => {
     const result = validatorFn(req.body);
@@ -12,3 +9,68 @@ function validate(validatorFn) {
 }
 
 module.exports = { validate };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/**
+ * Middleware générique de validation.
+ * Reçoit une fonction validateur(body) → { valid, error }
+ */

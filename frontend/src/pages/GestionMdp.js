@@ -7,20 +7,20 @@ import Notification from '../components/Notification';
 const API = 'http://localhost:5000/api';
 
 const validerMotDePasse = (mdp) => {
-  if (mdp.length < 8)           return 'Le mot de passe doit contenir au moins 8 caractères.';
-  if (!/[A-Z]/.test(mdp))       return 'Le mot de passe doit contenir au moins une majuscule.';
-  if (!/[0-9]/.test(mdp))       return 'Le mot de passe doit contenir au moins un chiffre.';
-  if (!/[!@#$%^&*]/.test(mdp))  return 'Le mot de passe doit contenir au moins un caractère spécial (!@#$%^&*).';
+  if (mdp.length < 8)             return 'Le mot de passe doit contenir au moins 8 caractères.';
+  if (!/[A-Z]/.test(mdp))         return 'Le mot de passe doit contenir au moins une majuscule.';
+  if (!/[0-9]/.test(mdp))         return 'Le mot de passe doit contenir au moins un chiffre.';
+  if (!/[!@#$%^&*]/.test(mdp))    return 'Le mot de passe doit contenir au moins un caractère spécial (!@#$%^&*).';
   return null;
 };
 
 const getForce = (mdp) => {
-  if (mdp.length === 0) return null;
+  if (!mdp.length) return null;
   let score = 0;
-  if (mdp.length >= 8)         score++;
-  if (/[A-Z]/.test(mdp))       score++;
-  if (/[0-9]/.test(mdp))       score++;
-  if (/[!@#$%^&*]/.test(mdp))  score++;
+  if (mdp.length >= 8)            score++;
+  if (/[A-Z]/.test(mdp))          score++;
+  if (/[0-9]/.test(mdp))          score++;
+  if (/[!@#$%^&*]/.test(mdp))     score++;
   if (score <= 1) return { label: 'Faible', classe: 'force-faible', width: '25%' };
   if (score === 2) return { label: 'Moyen',  classe: 'force-moyen',  width: '50%' };
   if (score === 3) return { label: 'Bon',    classe: 'force-bon',    width: '75%' };
@@ -36,8 +36,14 @@ function ModalMdp({ agent, onClose, onSuccess }) {
   const isAjout = !agent.has_password;
   const force   = getForce(mdp);
 
+  const isInvalid =
+    !mdp ||
+    mdp.trim() === '' ||
+    !!validerMotDePasse(mdp) ||
+    !confirm ||
+    mdp !== confirm;
+
   const handleSubmit = async () => {
-    if (!mdp || mdp.trim() === '') { setError('Veuillez entrer un mot de passe.'); return; }
     const erreurComplexite = validerMotDePasse(mdp);
     if (erreurComplexite) { setError(erreurComplexite); return; }
     if (mdp !== confirm)  { setError('Les mots de passe ne correspondent pas.'); return; }
@@ -46,7 +52,9 @@ function ModalMdp({ agent, onClose, onSuccess }) {
       const res = await axios.put(`${API}/modifier_mdp/${agent.matricule_agent}`, { mot_de_passe: mdp });
       if (res.data.success) { onSuccess(isAjout); onClose(); }
       else setError(res.data.message);
-    } catch { setError('Erreur de connexion au serveur.'); }
+    } catch {
+      setError('Erreur de connexion au serveur.');
+    }
     setLoading(false);
   };
 
@@ -85,10 +93,10 @@ function ModalMdp({ agent, onClose, onSuccess }) {
               </div>
             )}
             <div className="mdp-criteres">
-              <div className={mdp.length >= 8      ? 'critere-ok' : 'critere-ko'}>{mdp.length >= 8      ? '✓' : '✗'} Au moins 8 caractères</div>
-              <div className={/[A-Z]/.test(mdp)    ? 'critere-ok' : 'critere-ko'}>{/[A-Z]/.test(mdp)    ? '✓' : '✗'} Au moins une majuscule</div>
-              <div className={/[0-9]/.test(mdp)    ? 'critere-ok' : 'critere-ko'}>{/[0-9]/.test(mdp)    ? '✓' : '✗'} Au moins un chiffre</div>
-              <div className={/[!@#$%^&*]/.test(mdp) ? 'critere-ok' : 'critere-ko'}>{/[!@#$%^&*]/.test(mdp) ? '✓' : '✗'} Au moins un caractère spécial (!@#$%^&*)</div>
+              <div className={mdp.length >= 8          ? 'critere-ok' : 'critere-ko'}>{mdp.length >= 8          ? '✓' : '✗'} Au moins 8 caractères</div>
+              <div className={/[A-Z]/.test(mdp)        ? 'critere-ok' : 'critere-ko'}>{/[A-Z]/.test(mdp)        ? '✓' : '✗'} Au moins une majuscule</div>
+              <div className={/[0-9]/.test(mdp)        ? 'critere-ok' : 'critere-ko'}>{/[0-9]/.test(mdp)        ? '✓' : '✗'} Au moins un chiffre</div>
+              <div className={/[!@#$%^&*]/.test(mdp)   ? 'critere-ok' : 'critere-ko'}>{/[!@#$%^&*]/.test(mdp)   ? '✓' : '✗'} Au moins un caractère spécial (!@#$%^&*)</div>
             </div>
           </div>
 
@@ -110,8 +118,14 @@ function ModalMdp({ agent, onClose, onSuccess }) {
         </div>
 
         <div className="modal-actions">
-          <button className="btn btn-gray" onClick={onClose}>Annuler</button>
-          <button className="btn" onClick={handleSubmit} disabled={loading}>
+          <button className="btn btn-gray" onClick={onClose}>
+            Annuler
+          </button>
+          <button
+            className="btn"
+            onClick={handleSubmit}
+            disabled={loading || isInvalid}
+          >
             {loading
               ? (isAjout ? 'Ajout...' : 'Modification...')
               : (isAjout ? "➕ Confirmer l'ajout" : '✓ Confirmer la modification')}
@@ -151,7 +165,7 @@ export default function GestionMdp() {
     fetchAgents();
   };
 
- const filtered = agents.filter(a =>
+  const filtered = agents.filter(a =>
     a.role === 'receveur' && (
       String(a.matricule_agent).includes(search) ||
       a.nom.toLowerCase().includes(search.toLowerCase()) ||
