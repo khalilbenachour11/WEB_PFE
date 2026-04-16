@@ -5,7 +5,14 @@ import useRecettesFilter from "../hooks/useRecettesFilter";
 
 const API = "http://localhost:5000/api";
 const toDT = (v) => (v ? Number(v) / 1000 : 0);
-const SEARCH_FIELDS = ["nom_ligne", "id_ligne", "point_depart", "point_arrivee", "id_segment", "id_vente"];
+const SEARCH_FIELDS = [
+  "nom_ligne",
+  "id_ligne",
+  "point_depart",
+  "point_arrivee",
+  "id_segment",
+  "id_voyage",
+];
 
 export default function RecettesSegments() {
   const [segments, setSegments] = useState([]);
@@ -26,10 +33,13 @@ export default function RecettesSegments() {
     dateFilter,
     search,
     "date_heure",
-    SEARCH_FIELDS
+    SEARCH_FIELDS,
   );
 
-  const totalRecette = filtered.reduce((acc, s) => acc + toDT(s.total_recette), 0);
+  const totalRecette = filtered.reduce(
+    (acc, s) => acc + toDT(s.total_recette),
+    0,
+  );
 
   if (loading) {
     return (
@@ -60,7 +70,10 @@ export default function RecettesSegments() {
         {(search || dateFilter) && (
           <button
             className="btn-clear"
-            onClick={() => { setSearch(""); setDateFilter(""); }}
+            onClick={() => {
+              setSearch("");
+              setDateFilter("");
+            }}
           >
             ✕ Effacer
           </button>
@@ -69,9 +82,14 @@ export default function RecettesSegments() {
 
       {filtered.length > 0 && (
         <div className="summary-strip">
-          <span><strong>{filtered.length}</strong> segment{filtered.length > 1 ? "s" : ""}</span>
+          <span>
+            <strong>{filtered.length}</strong> segment
+            {filtered.length > 1 ? "s" : ""}
+          </span>
           <span className="summary-sep">•</span>
-          <span>Total : <strong>{totalRecette.toLocaleString("fr-FR")} DT</strong></span>
+          <span>
+            Total : <strong>{totalRecette.toLocaleString("fr-FR")} DT</strong>
+          </span>
           {search && (
             <>
               <span className="summary-sep">•</span>
@@ -83,7 +101,9 @@ export default function RecettesSegments() {
 
       {filtered.length === 0 ? (
         <div className="receveur-empty">
-          {search || dateFilter ? "Aucun segment ne correspond à votre recherche" : "Aucun segment trouvé"}
+          {search || dateFilter
+            ? "Aucun segment ne correspond à votre recherche"
+            : "Aucun segment trouvé"}
         </div>
       ) : (
         <table className="recettes-table">
@@ -100,10 +120,16 @@ export default function RecettesSegments() {
             {filtered.map((s) => (
               <tr key={s.id_segment}>
                 <td>{s.id_segment}</td>
-                <td><span className="badge-matricule">{s.id_vente}</span></td>
+                <td>
+                  <span className="badge-matricule">{s.id_voyage}</span>
+                </td>
                 <td>{s.point_depart}</td>
                 <td>{s.point_arrivee}</td>
-                <td><span className="badge-role direction">{toDT(s.total_recette).toLocaleString("fr-FR")} DT</span></td>
+                <td>
+                  <span className="badge-role direction">
+                    {toDT(s.total_recette).toLocaleString("fr-FR")} DT
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

@@ -5,7 +5,7 @@ import useRecettesFilter from "../hooks/useRecettesFilter";
 
 const API = "http://localhost:5000/api";
 const toDT = (v) => (v ? Number(v) / 1000 : 0);
-const SEARCH_FIELDS = ["nom_ligne", "id_ligne", "id_vente"];
+const SEARCH_FIELDS = ["nom_ligne", "id_ligne", "id_voyage"];
 
 export default function RecettesAnomalies() {
   const [anomalies, setAnomalies] = useState([]);
@@ -26,7 +26,7 @@ export default function RecettesAnomalies() {
     dateFilter,
     search,
     "date_heure",
-    SEARCH_FIELDS
+    SEARCH_FIELDS,
   );
 
   if (loading) {
@@ -58,7 +58,10 @@ export default function RecettesAnomalies() {
         {(search || dateFilter) && (
           <button
             className="btn-clear"
-            onClick={() => { setSearch(""); setDateFilter(""); }}
+            onClick={() => {
+              setSearch("");
+              setDateFilter("");
+            }}
           >
             ✕ Effacer
           </button>
@@ -67,7 +70,10 @@ export default function RecettesAnomalies() {
 
       {filtered.length > 0 && (
         <div className="summary-strip">
-          <span><strong>{filtered.length}</strong> anomalie{filtered.length > 1 ? "s" : ""}</span>
+          <span>
+            <strong>{filtered.length}</strong> anomalie
+            {filtered.length > 1 ? "s" : ""}
+          </span>
           {search && (
             <>
               <span className="summary-sep">•</span>
@@ -79,7 +85,9 @@ export default function RecettesAnomalies() {
 
       {filtered.length === 0 ? (
         <div className="receveur-empty">
-          {search || dateFilter ? "Aucune anomalie ne correspond à votre recherche" : "Aucune anomalie trouvée"}
+          {search || dateFilter
+            ? "Aucune anomalie ne correspond à votre recherche"
+            : "Aucune anomalie trouvée"}
         </div>
       ) : (
         <table className="recettes-table">
@@ -93,11 +101,19 @@ export default function RecettesAnomalies() {
           </thead>
           <tbody>
             {filtered.map((a) => (
-              <tr key={a.id_vente}>
-                <td><span className="badge-matricule">{a.id_vente}</span></td>
+              <tr key={a.id_voyage}>
+                <td>
+                  <span className="badge-matricule">{a.id_voyage}</span>
+                </td>
                 <td>{a.nom_ligne}</td>
-                <td style={{ color: "red", fontWeight: "bold" }}>{toDT(a.ecart).toLocaleString("fr-FR")} DT</td>
-                <td>{a.date_heure ? new Date(a.date_heure).toLocaleString("fr-FR") : "—"}</td>
+                <td style={{ color: "red", fontWeight: "bold" }}>
+                  {toDT(a.ecart).toLocaleString("fr-FR")} DT
+                </td>
+                <td>
+                  {a.date_heure
+                    ? new Date(a.date_heure).toLocaleString("fr-FR")
+                    : "—"}
+                </td>
               </tr>
             ))}
           </tbody>

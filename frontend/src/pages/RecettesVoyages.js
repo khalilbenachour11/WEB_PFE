@@ -5,7 +5,7 @@ import useRecettesFilter from "../hooks/useRecettesFilter";
 
 const API = "http://localhost:5000/api";
 const toDT = (value) => (value ? Number(value) / 1000 : 0);
-const SEARCH_FIELDS = ["nom_ligne", "id_ligne", "id_vente"];
+const SEARCH_FIELDS = ["nom_ligne", "id_ligne", "id_voyage"];
 
 export default function RecettesVoyages() {
   const [voyages, setVoyages] = useState([]);
@@ -26,12 +26,12 @@ export default function RecettesVoyages() {
     dateFilter,
     search,
     "date_heure",
-    SEARCH_FIELDS
+    SEARCH_FIELDS,
   );
 
   const totalRecette = filteredVoyages.reduce(
     (acc, v) => acc + toDT(v.total_recette),
-    0
+    0,
   );
 
   if (loading) {
@@ -63,7 +63,10 @@ export default function RecettesVoyages() {
         {(search || dateFilter) && (
           <button
             className="btn-clear"
-            onClick={() => { setSearch(""); setDateFilter(""); }}
+            onClick={() => {
+              setSearch("");
+              setDateFilter("");
+            }}
           >
             ✕ Effacer
           </button>
@@ -72,9 +75,14 @@ export default function RecettesVoyages() {
 
       {filteredVoyages.length > 0 && (
         <div className="summary-strip">
-          <span><strong>{filteredVoyages.length}</strong> voyage{filteredVoyages.length > 1 ? "s" : ""}</span>
+          <span>
+            <strong>{filteredVoyages.length}</strong> voyage
+            {filteredVoyages.length > 1 ? "s" : ""}
+          </span>
           <span className="summary-sep">•</span>
-          <span>Total : <strong>{totalRecette.toLocaleString("fr-FR")} DT</strong></span>
+          <span>
+            Total : <strong>{totalRecette.toLocaleString("fr-FR")} DT</strong>
+          </span>
           {search && (
             <>
               <span className="summary-sep">•</span>
@@ -86,7 +94,9 @@ export default function RecettesVoyages() {
 
       {filteredVoyages.length === 0 ? (
         <div className="receveur-empty">
-          {search || dateFilter ? "Aucun voyage ne correspond à votre recherche" : "Aucune recette trouvée"}
+          {search || dateFilter
+            ? "Aucun voyage ne correspond à votre recherche"
+            : "Aucune recette trouvée"}
         </div>
       ) : (
         <table className="recettes-table">
@@ -100,11 +110,21 @@ export default function RecettesVoyages() {
           </thead>
           <tbody>
             {filteredVoyages.map((v) => (
-              <tr key={v.id_vente}>
-                <td><span className="badge-matricule">{v.id_vente}</span></td>
+              <tr key={v.id_voyage}>
+                <td>
+                  <span className="badge-matricule">{v.id_voyage}</span>
+                </td>
                 <td>{v.nom_ligne || `Ligne ${v.id_ligne}`}</td>
-                <td>{v.date_heure ? new Date(v.date_heure).toLocaleString("fr-FR") : "—"}</td>
-                <td><span className="badge-role direction">{toDT(v.total_recette).toLocaleString("fr-FR")} DT</span></td>
+                <td>
+                  {v.date_heure
+                    ? new Date(v.date_heure).toLocaleString("fr-FR")
+                    : "—"}
+                </td>
+                <td>
+                  <span className="badge-role direction">
+                    {toDT(v.total_recette).toLocaleString("fr-FR")} DT
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

@@ -7,7 +7,7 @@ const toDT = (v) => (v ? Number(v) / 1000 : 0);
 const SEARCH_FIELDS = [
   "nom_ligne",
   "id_ligne",
-  "id_vente",
+  "id_voyage",
   "id_ticket",
   "nom",
   "prenom",
@@ -28,7 +28,7 @@ export default function SyncHistorique() {
   // Catégories de tickets
   const onlineTickets = allTickets.filter((t) => t.statut_sync === "online");
   const syncedOfflineTickets = allTickets.filter(
-    (t) => t.statut_sync === "synced"
+    (t) => t.statut_sync === "synced",
   );
   const failedTickets = allTickets.filter((t) => t.statut_sync === "failed");
 
@@ -51,12 +51,12 @@ export default function SyncHistorique() {
     dateFilter,
     search,
     "date_heure",
-    SEARCH_FIELDS
+    SEARCH_FIELDS,
   );
 
   const totalMontant = filtered.reduce(
     (acc, t) => acc + toDT(t.montant_total),
-    0
+    0,
   );
 
   // ─────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ export default function SyncHistorique() {
       const res = await axios.post(`${API}/retry_sync`);
       const { synced, failed } = res.data.result;
       setSyncMessage(
-        `✓ ${synced} synchronisé${synced > 1 ? "s" : ""}   ✗ ${failed} échoué${failed > 1 ? "s" : ""}`
+        `✓ ${synced} synchronisé${synced > 1 ? "s" : ""}   ✗ ${failed} échoué${failed > 1 ? "s" : ""}`,
       );
       await _fetchAll();
     } catch (err) {
@@ -176,7 +176,13 @@ export default function SyncHistorique() {
       {/* ─── CARD PRINCIPALE ─── */}
       <div className="card">
         {/* ─── ONGLETS ─── */}
-        <div style={{ marginBottom: "24px", borderBottom: "1px solid var(--gray-200)", paddingBottom: "16px" }}>
+        <div
+          style={{
+            marginBottom: "24px",
+            borderBottom: "1px solid var(--gray-200)",
+            paddingBottom: "16px",
+          }}
+        >
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
             <button
               className={`btn ${activeTab === "online" ? "btn-gold" : "btn-gray"}`}
@@ -273,8 +279,8 @@ export default function SyncHistorique() {
                     activeTab === "online"
                       ? "en ligne"
                       : activeTab === "synced"
-                      ? "synchronisé hors-ligne"
-                      : "échoué"
+                        ? "synchronisé hors-ligne"
+                        : "échoué"
                   }`}
             </div>
           </div>
@@ -354,14 +360,14 @@ export default function SyncHistorique() {
                             t.statut_sync === "online"
                               ? "rgba(27,107,58,0.1)"
                               : t.statut_sync === "synced"
-                              ? "rgba(13,43,94,0.1)"
-                              : "rgba(192,57,43,0.1)",
+                                ? "rgba(13,43,94,0.1)"
+                                : "rgba(192,57,43,0.1)",
                           color:
                             t.statut_sync === "online"
                               ? "var(--green)"
                               : t.statut_sync === "synced"
-                              ? "var(--navy)"
-                              : "var(--red)",
+                                ? "var(--navy)"
+                                : "var(--red)",
                         }}
                       >
                         {t.statut_sync === "online" && "📡 En ligne"}
