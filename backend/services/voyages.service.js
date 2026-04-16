@@ -39,7 +39,7 @@ async function insertSegmentsVoyage(id_voyage, id_ligne) {
 
   await db.promise().query(
     `INSERT INTO billetterie.segment_voyage 
-     (id_voyage, id_ligne, point_depart, point_arrivee, ordre, statut) VALUES ?`,
+     (id_voyage, id_ligne, point_depart, point_arrivee, ordre) VALUES ?`,
     [values],
   );
   return true;
