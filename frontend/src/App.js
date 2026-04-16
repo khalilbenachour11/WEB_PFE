@@ -19,8 +19,7 @@ import ListeLignes from './pages/ListeLignes';
 import RecettesController from './pages/RecettesController';
 import RecettesJournal from './pages/RecettesJournal';
 import RecettesSegments from './pages/RecettesSegments';
-import GestionMdp_info from './pages/GestionMdp_info';
-
+import GestionMdpInfo from './pages/GestionMdp_info';
 export default function App() {
   const [user, setUser] = useState(null);
 
@@ -34,7 +33,7 @@ export default function App() {
 
   const getHomePage = () => {
     switch (user.role) {
-      case 'informatique': return <GestionRoles />;
+      case 'informatique': return <GestionRoles user={user} />;
       case 'direction':    return <Dashboard user={user} />;
       case 'controleur':   return <RecettesController />; // ✅ ajouté
       default: return (
@@ -84,8 +83,9 @@ export default function App() {
             {/* ── Routes Informatique ── */}
             {user.role === 'informatique' && (
               <>
-                <Route path="/gestion-roles" element={<GestionRoles />} />
-                <Route path="/gestion-mdp"      element={<GestionMdp_info />} />
+                <Route path="/gestion-roles" element={<GestionRoles user={user} />} />
+                <Route path="/gestion-mdp" element={<GestionMdpInfo />} />
+
 
               </>
             )}

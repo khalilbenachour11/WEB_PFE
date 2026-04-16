@@ -21,6 +21,7 @@ async function insertLigneDetails(id_ligne, segments, arrets_ordre) {
 }
 
 async function deleteLigneDetails(id_ligne) {
+  // Supprimer d'abord les segments (FK ticket_vendu → segment_voyage)
   await db
     .promise()
     .query(
@@ -28,6 +29,7 @@ async function deleteLigneDetails(id_ligne) {
       [id_ligne],
     );
 
+  // Puis supprimer les tarifs
   await db
     .promise()
     .query(`DELETE FROM billetterie.tarif_segment WHERE id_ligne=?`, [

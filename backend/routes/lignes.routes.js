@@ -9,5 +9,7 @@ router.get('/verification_segments/:id_ligne',     ctrl.verifierSegments);
 router.post('/ajouter_ligne',                      ctrl.ajouter);
 router.put('/lignes/:id',                          ctrl.modifier);
 router.delete('/lignes/:id',                       ctrl.supprimer);
+router.get('/segments_voyage/:id_voyage',          ctrl.getSegmentsVoyage);
+
 
 module.exports = router;
