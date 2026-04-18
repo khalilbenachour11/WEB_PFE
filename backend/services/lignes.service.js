@@ -10,13 +10,22 @@ async function insertLigneDetails(id_ligne, segments, arrets_ordre) {
       );
   }
 
+  if (!arrets_ordre || arrets_ordre.length < 2) {
+    console.log("❌ arrets_ordre vide ou insuffisant — boucle ignorée");
+    return;
+  }
+
   for (let i = 0; i < arrets_ordre.length - 1; i++) {
-    await db.promise().query(
+    console.log(
+      `Insertion segment ${i + 1}: ${arrets_ordre[i]} → ${arrets_ordre[i + 1]}`,
+    );
+    const [r] = await db.promise().query(
       `INSERT INTO billetterie.segment_voyage 
        (id_voyage, id_ligne, point_depart, point_arrivee, ordre)
        VALUES (NULL, ?, ?, ?, ?)`,
       [id_ligne, arrets_ordre[i], arrets_ordre[i + 1], i + 1],
     );
+    console.log(`✅ Inséré avec id_segment:`, r.insertId);
   }
 }
 

@@ -56,7 +56,7 @@ exports.getSegments = (req, res) => {
   );
 };
 
-// ✅ NOUVELLE ROUTE : segments réels d'un voyage — utilisé dans ListeVoyages
+// Segments réels d'un voyage — utilisé dans ListeVoyages
 exports.getSegmentsVoyage = (req, res) => {
   db.query(
     `SELECT id_segment, point_depart, point_arrivee, ordre
@@ -139,7 +139,12 @@ exports.ajouter = (req, res) => {
   const vs = validateSegments(segments);
   if (!vs.valid) return res.json({ success: false, message: vs.error });
 
-  const va = validateArrets(arrets_ordre);
+  // ✅ On accepte arrets_ordre vide ou absent — on les reconstruit depuis les segments
+  const arrets = Array.isArray(arrets_ordre) && arrets_ordre.length >= 2
+    ? arrets_ordre
+    : buildArretsFromSegments(segments);
+
+  const va = validateArrets(arrets);
   if (!va.valid) return res.json({ success: false, message: va.error });
 
   db.query(
@@ -152,14 +157,16 @@ exports.ajouter = (req, res) => {
           message: "Erreur insertion ligne: " + err.message,
         });
       try {
-        await insertLigneDetails(result.insertId, segments, arrets_ordre);
+        await insertLigneDetails(result.insertId, segments, arrets);
         res.json({
           success: true,
           message: "Ligne ajoutée avec succès",
           id: result.insertId,
         });
       } catch (e) {
-        res.json({ success: false, message: e.message });
+        // Rollback : supprimer la ligne insérée si les segments ont échoué
+        db.query("DELETE FROM base_global.ligne WHERE id_ligne = ?", [result.insertId]);
+        res.json({ success: false, message: "Erreur segments: " + e.message });
       }
     },
   );
@@ -173,19 +180,22 @@ exports.modifier = async (req, res) => {
   const vs = validateSegments(segments);
   if (!vs.valid) return res.json({ success: false, message: vs.error });
 
-  const va = validateArrets(arrets_ordre);
+  // ✅ Même logique de fallback pour la modification
+  const arrets = Array.isArray(arrets_ordre) && arrets_ordre.length >= 2
+    ? arrets_ordre
+    : buildArretsFromSegments(segments);
+
+  const va = validateArrets(arrets);
   if (!va.valid) return res.json({ success: false, message: va.error });
 
   try {
     await db.promise().query("START TRANSACTION");
-    await db
-      .promise()
-      .query(
-        `UPDATE base_global.ligne SET nom_ligne=?, point_depart=?, point_arrive=? WHERE id_ligne=?`,
-        [nom_ligne, point_depart, point_arrive, id],
-      );
+    await db.promise().query(
+      `UPDATE base_global.ligne SET nom_ligne=?, point_depart=?, point_arrive=? WHERE id_ligne=?`,
+      [nom_ligne, point_depart, point_arrive, id],
+    );
     await deleteLigneDetails(id);
-    await insertLigneDetails(id, segments, arrets_ordre);
+    await insertLigneDetails(id, segments, arrets);
     await db.promise().query("COMMIT");
     res.json({ success: true, message: "Ligne modifiée avec succès" });
   } catch (err) {
@@ -199,15 +209,25 @@ exports.supprimer = async (req, res) => {
   try {
     await db.promise().query("START TRANSACTION");
     await deleteLigneDetails(id);
-    await db
-      .promise()
-      .query(`DELETE FROM base_global.ligne WHERE id_ligne = ?`, [id]);
+    await db.promise().query(`DELETE FROM base_global.ligne WHERE id_ligne = ?`, [id]);
     await db.promise().query("COMMIT");
     res.json({ success: true, message: "Ligne supprimée avec succès" });
   } catch (err) {
     await db.promise().query("ROLLBACK");
-    res
-      .status(500)
-      .json({ success: false, message: "Erreur suppression: " + err.message });
+    res.status(500).json({ success: false, message: "Erreur suppression: " + err.message });
   }
 };
+
+// ─────────────────────────────────────────────────────────────
+// Helper : reconstruit l'ordre des arrêts depuis les segments
+// si le frontend n'en envoie pas (fallback sécurisé)
+// ─────────────────────────────────────────────────────────────
+function buildArretsFromSegments(segments) {
+  const seen = new Set();
+  const order = [];
+  for (const s of segments) {
+    if (!seen.has(s.point_a)) { seen.add(s.point_a); order.push(s.point_a); }
+    if (!seen.has(s.point_b)) { seen.add(s.point_b); order.push(s.point_b); }
+  }
+  return order;
+}

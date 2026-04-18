@@ -860,7 +860,6 @@ function ModalHistoriqueVoyages({ onClose, lignesMap }) {
               <option value="tous">Tous les statuts</option>
               <option value="actif">Actif</option>
               <option value="cloture">Clôturé</option>
-              <option value="programmé">Programmé</option>
             </select>
           </div>
           <div style={{ flex: "0 1 160px" }}>
@@ -1064,9 +1063,7 @@ function ReceveurCard({
 
   const handleReactiver = async (voyage) => {
     try {
-      const res = await axios.put(
-        `${API}/reactiver_voyage/${voyage.id_voyage}`,
-      );
+      const res = await axios.put(`${API}/reactiver_voyage/${voyage.id_voyage}`);
       if (res.data.success) {
         onNotify({
           text: `Voyage #${voyage.id_voyage} réactivé avec succès !`,
@@ -1079,8 +1076,11 @@ function ReceveurCard({
           type: "error",
         });
       }
-    } catch {
-      onNotify({ text: "Erreur de connexion au serveur.", type: "error" });
+    } catch (err) {
+      
+      const msg =
+        err.response?.data?.message || "Erreur de connexion au serveur.";
+      onNotify({ text: msg, type: "error" });
     }
   };
 
