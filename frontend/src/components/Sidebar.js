@@ -24,11 +24,7 @@ const menuByRole = {
   ],
    controleur: [
     { path: '/',           icon: '📊', label: 'Tableau de bord' },
-    { path: '/analytique', icon: '📈', label: 'Analytique' },
-    { path: '/journal',    icon: '📒', label: 'Journal des ventes' },
-    { path: '/segments',   icon: '🧭', label: 'Recettes segments' },
-    { path: '/khalil',   icon: '🧭', label: 'SyncHistorique' },
-    { path: '/maram',   icon: '🧭', label: 'RecettesAnomalies' },
+    
     
     
   ],

@@ -16,12 +16,9 @@ import AjouterLigne from './pages/AjouterLigne';
 import GestionRoles from './pages/GestionRoles';
 import ListeLignes from './pages/ListeLignes';
 
-import RecettesController from './pages/RecettesController';
-import RecettesJournal from './pages/RecettesJournal';
-import RecettesSegments from './pages/RecettesSegments';
+
 import GestionMdpInfo from './pages/GestionMdp_info';
-import SyncHistorique from './pages/SyncHistorique';
-import RecettesAnomalies from './pages/RecettesAnomalies'
+
 import HistoriqueVoyages from './pages/HistoriqueVoyages';
 export default function App() {
   const [user, setUser] = useState(null);
@@ -77,11 +74,7 @@ export default function App() {
             {/* ── Routes Controleur ── */}
             {user.role === 'controleur' && (
               <>
-                <Route path="/analytique"  element={<RecettesController />} />
-                <Route path="/journal"     element={<RecettesJournal />} />
-                <Route path="/segments"    element={<RecettesSegments />} />
-                <Route path="/khalil"    element={<SyncHistorique />} />
-                <Route path="/maram"    element={<RecettesAnomalies />} />
+                
               </>
             )}
 
