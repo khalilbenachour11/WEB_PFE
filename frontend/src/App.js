@@ -20,6 +20,9 @@ import RecettesController from './pages/RecettesController';
 import RecettesJournal from './pages/RecettesJournal';
 import RecettesSegments from './pages/RecettesSegments';
 import GestionMdpInfo from './pages/GestionMdp_info';
+import SyncHistorique from './pages/SyncHistorique';
+import RecettesAnomalies from './pages/RecettesAnomalies'
+import HistoriqueVoyages from './pages/HistoriqueVoyages';
 export default function App() {
   const [user, setUser] = useState(null);
 
@@ -67,6 +70,7 @@ export default function App() {
                 <Route path="/ajouter-ligne"    element={<AjouterLigne />} />
                 <Route path="/gestion-mdp"      element={<GestionMdp />} />
                 <Route path="/lignes"           element={<ListeLignes />} />
+                <Route path="/historique-voyages" element={<HistoriqueVoyages />} />
               </>
             )}
 
@@ -76,7 +80,8 @@ export default function App() {
                 <Route path="/analytique"  element={<RecettesController />} />
                 <Route path="/journal"     element={<RecettesJournal />} />
                 <Route path="/segments"    element={<RecettesSegments />} />
-                
+                <Route path="/khalil"    element={<SyncHistorique />} />
+                <Route path="/maram"    element={<RecettesAnomalies />} />
               </>
             )}
 

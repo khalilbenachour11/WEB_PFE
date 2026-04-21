@@ -7,5 +7,6 @@ router.use(require('./lignes.routes'));
 router.use(require('./voyages.routes'));
 router.use(require('./recettes.routes'));
 router.use(require('./roles.routes'));
+router.use(require('./voyageHistorique.routes'));
 
 module.exports = router;

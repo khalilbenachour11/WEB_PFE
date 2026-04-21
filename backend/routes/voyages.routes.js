@@ -8,5 +8,6 @@ router.post("/ajouter_voyage", ctrl.ajouter);
 router.put("/modifier_voyage/:id_voyage", ctrl.modifier);
 router.put("/reactiver_voyage/:id_voyage", ctrl.reactiver);
 router.delete("/supprimer_voyage/:id_voyage", ctrl.supprimer);
+router.put("/cloturer_voyage/:id_voyage", ctrl.cloturer);
 
 module.exports = router;

@@ -17,7 +17,8 @@ const menuByRole = {
     { path: '/ajouter-appareil',  icon: '➕',  label: 'Ajouter appareil' },
     { path: '/voyages',           icon: '🚌',  label: 'Voyages receveurs' },
     { path: '/ajouter-ligne',     icon: '🛣️', label: 'Ajouter une ligne' },
-    { path: '/historique',        icon: '📅',  label: 'Historique ' },
+    { path: '/historique',        icon: '📅',  label: 'Historique appareils' },
+    { path: '/historique-voyages', icon: '🗂️', label: 'Historique voyages' },
     
     
   ],
@@ -26,6 +27,8 @@ const menuByRole = {
     { path: '/analytique', icon: '📈', label: 'Analytique' },
     { path: '/journal',    icon: '📒', label: 'Journal des ventes' },
     { path: '/segments',   icon: '🧭', label: 'Recettes segments' },
+    { path: '/khalil',   icon: '🧭', label: 'SyncHistorique' },
+    { path: '/maram',   icon: '🧭', label: 'RecettesAnomalies' },
     
     
   ],

@@ -33,7 +33,7 @@ async function insertSegmentsVoyage(id_voyage, id_ligne) {
     s.point_depart,
     s.point_arrivee,
     s.ordre,
-    "en_attente",
+    
   ]);
 
   await db.promise().query(

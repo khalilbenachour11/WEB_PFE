@@ -69,6 +69,7 @@ export default function ListeAgents() {
               <th>Code agence</th>
               <th>Direction</th>
               <th>Rôle</th>
+              <th>statut</th>
             </tr>
           </thead>
           <tbody>
@@ -81,6 +82,7 @@ export default function ListeAgents() {
                 <td>{agent.code_agence || '—'}</td>
                 <td>{agent.direction || '—'}</td>
                 <td><span className={`badge-role ${agent.role}`}>{agent.role}</span></td>
+                <td>{agent.statut || '—'}</td>
               </tr>
             ))}
             {filtered.length === 0 && (
