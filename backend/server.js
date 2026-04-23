@@ -16,6 +16,9 @@ app.use(express.json());
 const routes = require('./routes/index');
 app.use('/api', routes);
 
+const syncRoutes = require("./routes/syncRoutes");
+ 
+app.use("/api/sync", syncRoutes); 
 // ── Démarrage ──
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

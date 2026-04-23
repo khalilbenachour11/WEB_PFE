@@ -5,30 +5,24 @@ import '../styles/global.css';
 const menuByRole = {
   informatique: [
     { path: '/gestion-roles', icon: '🔑', label: 'Gestion des rôles' },
-    { path: '/gestion-mdp',       icon: '🔑',  label: 'Gestion mots de passe' },
-    
+    { path: '/gestion-mdp',   icon: '🔑', label: 'Gestion mots de passe' },
   ],
   direction: [
-    { path: '/',                  icon: '⊞',  label: 'Accueil' },
-    { path: '/gestion-mdp',       icon: '🔑',  label: 'Gestion mots de passe' },
-    { path: '/agents',            icon: '👥',  label: 'Liste des employés' },
-    { path: '/appareils',         icon: '📱',  label: 'Liste des appareils' },
-    { path: '/lignes',        icon: '📋',  label: 'Liste des lignes ' },
-    { path: '/ajouter-appareil',  icon: '➕',  label: 'Ajouter appareil' },
-    { path: '/voyages',           icon: '🚌',  label: 'Voyages receveurs' },
-    { path: '/ajouter-ligne',     icon: '🛣️', label: 'Ajouter une ligne' },
-    { path: '/historique',        icon: '📅',  label: 'Historique appareils' },
+    { path: '/',                   icon: '⊞',  label: 'Accueil' },
+    { path: '/gestion-mdp',        icon: '🔑',  label: 'Gestion mots de passe' },
+    { path: '/agents',             icon: '👥',  label: 'Liste des employés' },
+    { path: '/appareils',          icon: '📱',  label: 'Liste des appareils' },
+    { path: '/lignes',             icon: '📋',  label: 'Liste des lignes' },
+    { path: '/ajouter-appareil',   icon: '➕',  label: 'Ajouter appareil' },
+    { path: '/voyages',            icon: '🚌',  label: 'Voyages receveurs' },
+    { path: '/ajouter-ligne',      icon: '🛣️', label: 'Ajouter une ligne' },
+    { path: '/historique',         icon: '📅',  label: 'Historique appareils' },
     { path: '/historique-voyages', icon: '🗂️', label: 'Historique voyages' },
-    
-    
   ],
-   controleur: [
-    { path: '/',            label: 'Contrôle des recettes' },
-    
-    
-    
+  controleur: [
+    { path: '/',             icon: '📊', label: 'Contrôle des recettes' },
+    { path: '/sync-monitor', icon: '📡', label: 'Sync monitor' },
   ],
-
 };
 
 const roleLabels = {
@@ -38,14 +32,13 @@ const roleLabels = {
 };
 
 export default function Sidebar({ user, onLogout }) {
-  const navigate   = useNavigate();
-  const location   = useLocation();
-  const menuItems  = menuByRole[user?.role] || [];
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const menuItems = menuByRole[user?.role] || [];
 
   return (
     <div className="sidebar">
 
-   
       <div className="sidebar-logo">
         <img src="/logo_srtb.png" alt="SRTB"
           onError={e => e.target.style.display = 'none'} />
@@ -53,7 +46,6 @@ export default function Sidebar({ user, onLogout }) {
         <span>Administration</span>
       </div>
 
-      
       <div className="sidebar-scroll-area">
         <nav className="sidebar-nav">
           {menuItems.map(item => (

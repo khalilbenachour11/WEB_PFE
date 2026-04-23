@@ -15,12 +15,10 @@ import useAutoLogout from './hooks/useAutoLogout';
 import AjouterLigne from './pages/AjouterLigne';
 import GestionRoles from './pages/GestionRoles';
 import ListeLignes from './pages/ListeLignes';
-
-
 import GestionMdpInfo from './pages/GestionMdp_info';
-
 import HistoriqueVoyages from './pages/HistoriqueVoyages';
-import ControleurRecettes from './pages/ControleurRecettes'
+import ControleurRecettes from './pages/ControleurRecettes';
+import SyncMonitor from './pages/SyncMonitor';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -37,7 +35,7 @@ export default function App() {
     switch (user.role) {
       case 'informatique': return <GestionRoles user={user} />;
       case 'direction':    return <Dashboard user={user} />;
-      case 'controleur':   return <ControleurRecettes />; // ✅ ajouté
+      case 'controleur':   return <ControleurRecettes />;
       default: return (
         <div style={{ textAlign: 'center', marginTop: 100 }}>
           <h2 style={{ color: '#C0392B' }}>⚠ Accès refusé</h2>
@@ -60,15 +58,15 @@ export default function App() {
             {/* ── Routes Direction ── */}
             {user.role === 'direction' && (
               <>
-                <Route path="/agents"           element={<ListeAgents />} />
-                <Route path="/appareils"        element={<ListeAppareils />} />
-                <Route path="/historique"       element={<HistoriqueAppareil />} />
-                <Route path="/ajouter-appareil" element={<AjouterAppareil />} />
-                <Route path="/voyages"          element={<ListeVoyages />} />
-                <Route path="/recettes"         element={<Recettes />} />
-                <Route path="/ajouter-ligne"    element={<AjouterLigne />} />
-                <Route path="/gestion-mdp"      element={<GestionMdp />} />
-                <Route path="/lignes"           element={<ListeLignes />} />
+                <Route path="/agents"             element={<ListeAgents />} />
+                <Route path="/appareils"          element={<ListeAppareils />} />
+                <Route path="/historique"         element={<HistoriqueAppareil />} />
+                <Route path="/ajouter-appareil"   element={<AjouterAppareil />} />
+                <Route path="/voyages"            element={<ListeVoyages />} />
+                <Route path="/recettes"           element={<Recettes />} />
+                <Route path="/ajouter-ligne"      element={<AjouterLigne />} />
+                <Route path="/gestion-mdp"        element={<GestionMdp />} />
+                <Route path="/lignes"             element={<ListeLignes />} />
                 <Route path="/historique-voyages" element={<HistoriqueVoyages />} />
               </>
             )}
@@ -76,7 +74,8 @@ export default function App() {
             {/* ── Routes Controleur ── */}
             {user.role === 'controleur' && (
               <>
-                <Route path="/" element={<ControleurRecettes />} />
+                <Route path="/"             element={<ControleurRecettes />} />
+                <Route path="/sync-monitor" element={<SyncMonitor />} />
               </>
             )}
 
@@ -84,9 +83,7 @@ export default function App() {
             {user.role === 'informatique' && (
               <>
                 <Route path="/gestion-roles" element={<GestionRoles user={user} />} />
-                <Route path="/gestion-mdp" element={<GestionMdpInfo />} />
-
-
+                <Route path="/gestion-mdp"   element={<GestionMdpInfo />} />
               </>
             )}
 
