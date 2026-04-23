@@ -23,7 +23,7 @@ const menuByRole = {
     
   ],
    controleur: [
-    { path: '/',           icon: '📊', label: 'Tableau de bord' },
+    { path: '/',            label: 'Contrôle des recettes' },
     
     
     

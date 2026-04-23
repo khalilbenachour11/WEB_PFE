@@ -20,6 +20,8 @@ import ListeLignes from './pages/ListeLignes';
 import GestionMdpInfo from './pages/GestionMdp_info';
 
 import HistoriqueVoyages from './pages/HistoriqueVoyages';
+import ControleurRecettes from './pages/ControleurRecettes'
+
 export default function App() {
   const [user, setUser] = useState(null);
 
@@ -35,7 +37,7 @@ export default function App() {
     switch (user.role) {
       case 'informatique': return <GestionRoles user={user} />;
       case 'direction':    return <Dashboard user={user} />;
-      case 'controleur':   return <RecettesController />; // ✅ ajouté
+      case 'controleur':   return <ControleurRecettes />; // ✅ ajouté
       default: return (
         <div style={{ textAlign: 'center', marginTop: 100 }}>
           <h2 style={{ color: '#C0392B' }}>⚠ Accès refusé</h2>
@@ -74,7 +76,7 @@ export default function App() {
             {/* ── Routes Controleur ── */}
             {user.role === 'controleur' && (
               <>
-                
+                <Route path="/" element={<ControleurRecettes />} />
               </>
             )}
 
