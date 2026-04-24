@@ -30,6 +30,7 @@ async function getAllAgentsSnapshot() {
        h.updated_at,
        TIMESTAMPDIFF(SECOND, h.updated_at, NOW())     AS seconds_ago,
        COALESCE(s.tickets_today,    0)                AS tickets_today,
+       COALESCE(s.quantite_today,   0)                AS quantite_today,
        COALESCE(s.recette_today_ms, 0)                AS recette_today_ms
      FROM billetterie.agent_heartbeat h
      LEFT JOIN base_global.agent a
@@ -38,6 +39,7 @@ async function getAllAgentsSnapshot() {
          SELECT
              matricule_agent,
              COUNT(*)           AS tickets_today,
+             SUM(quantite)      AS quantite_today,
              SUM(montant_total) AS recette_today_ms
          FROM billetterie.ticket_vendu
          WHERE DATE(date_heure) = CURDATE()
