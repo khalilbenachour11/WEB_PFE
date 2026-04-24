@@ -5,12 +5,14 @@ const {
 } = require("../services/voyages.service");
 
 // ─── Helper : log manual history entry (fallback if trigger not available) ───
-async function logHistorique(id_voyage, statut_avant, statut_apres, note = null) {
+async function logHistorique(id_voyage, statut_avant, statut_apres) {
   try {
-    const [vRows] = await db.promise().query(
-      "SELECT id_ligne, matricule_agent FROM billetterie.voyage WHERE id_voyage = ?",
-      [id_voyage]
-    );
+    const [vRows] = await db
+      .promise()
+      .query(
+        "SELECT id_ligne, matricule_agent FROM billetterie.voyage WHERE id_voyage = ?",
+        [id_voyage],
+      );
     if (!vRows.length) return;
     const { id_ligne, matricule_agent } = vRows[0];
 
@@ -18,15 +20,15 @@ async function logHistorique(id_voyage, statut_avant, statut_apres, note = null)
     const [existing] = await db.promise().query(
       `SELECT id FROM billetterie.voyage_historique
        WHERE id_voyage = ? AND statut_apres = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 2 SECOND)`,
-      [id_voyage, statut_apres]
+      [id_voyage, statut_apres],
     );
     if (existing.length > 0) return; // trigger already handled it
 
     await db.promise().query(
       `INSERT INTO billetterie.voyage_historique
-        (id_voyage, id_ligne, matricule_agent, statut_avant, statut_apres, note, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [id_voyage, id_ligne, matricule_agent, statut_avant, statut_apres, note]
+        (id_voyage, id_ligne, matricule_agent, statut_avant, statut_apres,  created_at)
+       VALUES (?, ?, ?, ?, ?, NOW())`,
+      [id_voyage, id_ligne, matricule_agent, statut_avant, statut_apres],
     );
   } catch (e) {
     console.warn("logHistorique failed (non-critical):", e.message);
@@ -150,25 +152,39 @@ exports.reactiver = async (req, res) => {
   try {
     const [rows] = await db
       .promise()
-      .query(`SELECT statut FROM billetterie.voyage WHERE id_voyage = ?`, [id_voyage]);
+      .query(`SELECT statut FROM billetterie.voyage WHERE id_voyage = ?`, [
+        id_voyage,
+      ]);
     if (!rows.length)
       return res.json({ success: false, message: "Voyage introuvable" });
     if (rows[0].statut !== "cloture")
-      return res.json({ success: false, message: "Ce voyage n'est pas clôturé" });
+      return res.json({
+        success: false,
+        message: "Ce voyage n'est pas clôturé",
+      });
 
     const statutAvant = rows[0].statut;
 
-    await db.promise().query(
-      `UPDATE billetterie.voyage SET statut = 'actif', date_cloture = NULL WHERE id_voyage = ?`,
-      [id_voyage],
-    );
-    await db.promise().query(
-      `UPDATE billetterie.segment_voyage SET statut = 'en_attente' WHERE id_voyage = ? AND statut = 'cloture'`,
-      [id_voyage],
-    );
+    await db
+      .promise()
+      .query(
+        `UPDATE billetterie.voyage SET statut = 'actif', date_cloture = NULL WHERE id_voyage = ?`,
+        [id_voyage],
+      );
+    await db
+      .promise()
+      .query(
+        `UPDATE billetterie.segment_voyage SET statut = 'en_attente' WHERE id_voyage = ? AND statut = 'cloture'`,
+        [id_voyage],
+      );
 
     // Log réactivation
-    await logHistorique(id_voyage, statutAvant, "actif", "Réactivation manuelle");
+    await logHistorique(
+      id_voyage,
+      statutAvant,
+      "actif",
+      "Réactivation manuelle",
+    );
 
     res.json({ success: true, message: "Voyage réactivé avec succès" });
   } catch (err) {
@@ -179,14 +195,17 @@ exports.reactiver = async (req, res) => {
 // ─── NEW: cloture manuelle depuis le web (direction) ────────────────────────
 exports.cloturer = async (req, res) => {
   const { id_voyage } = req.params;
-  const { note } = req.body;
+
   try {
-    const [rows] = await db.promise().query(
-      `SELECT statut FROM billetterie.voyage WHERE id_voyage = ?`,
-      [id_voyage]
-    );
-    if (!rows.length) return res.json({ success: false, message: "Voyage introuvable" });
-    if (rows[0].statut === "cloture") return res.json({ success: false, message: "Déjà clôturé" });
+    const [rows] = await db
+      .promise()
+      .query(`SELECT statut FROM billetterie.voyage WHERE id_voyage = ?`, [
+        id_voyage,
+      ]);
+    if (!rows.length)
+      return res.json({ success: false, message: "Voyage introuvable" });
+    if (rows[0].statut === "cloture")
+      return res.json({ success: false, message: "Déjà clôturé" });
 
     const statutAvant = rows[0].statut;
 
@@ -195,17 +214,7 @@ exports.cloturer = async (req, res) => {
       `UPDATE billetterie.voyage 
        SET statut = 'cloture', date_cloture = NOW() 
        WHERE id_voyage = ?`,
-      [id_voyage]
-    );
-
-    // Ajouter seulement la note manuellement (le trigger gère déjà le changement de statut)
-    // On met juste à jour la note sur l'entrée que le trigger vient de créer
-    await db.promise().query(
-      `UPDATE billetterie.voyage_historique 
-       SET note = ?
-       WHERE id_voyage = ? AND statut_apres = 'cloture'
-       ORDER BY created_at DESC LIMIT 1`,
-      [note || "Clôture manuelle (web)", id_voyage]
+      [id_voyage],
     );
 
     res.json({ success: true, message: "Voyage clôturé avec succès" });

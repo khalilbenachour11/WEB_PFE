@@ -79,7 +79,7 @@ function AgentCard({ agent }) {
             warn:  hasFailure,
           },
           {
-            label: "Tickets auj.",
+            label: "operation",
             value: fmt(agent.tickets_today),
             warn:  false,
           },
@@ -183,7 +183,7 @@ export default function SyncMonitor() {
       [
         "Matricule", "Prénom", "Nom",
         "Statut", "En attente", "Échecs",
-        "Tickets auj.", "Recette auj. (ms)",
+        "operation", "Recette auj. (ms)",
         "Dernière sync", "Vu il y a (s)", "Version",
       ],
       ...agents.map((a) => [

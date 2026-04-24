@@ -85,8 +85,7 @@ exports.getHistoriqueByVoyage = async (req, res) => {
 };
 
 /**
- * POST /api/voyage_historique
- * Permet d'ajouter manuellement une entrée (ex: note manuelle).
+
  */
 exports.addHistorique = async (req, res) => {
   const { id_voyage, statut_avant, statut_apres, matricule_agent } = req.body;
@@ -102,11 +101,11 @@ exports.addHistorique = async (req, res) => {
     const id_ligne = vRows[0]?.id_ligne || null;
 
     await db.promise().query(
-      `INSERT INTO billetterie.voyage_historique
-        (id_voyage, id_ligne, matricule_agent, statut_avant, statut_apres,  created_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [id_voyage, id_ligne, matricule_agent || null, statut_avant || null, statut_apres ]
-    );
+  `INSERT INTO billetterie.voyage_historique
+    (id_voyage, id_ligne, matricule_agent, statut_avant, statut_apres, created_at)
+   VALUES (?, ?, ?, ?, ?, NOW())`,
+  [id_voyage, id_ligne, matricule_agent || null, statut_avant || null, statut_apres]
+);
     res.json({ success: true, message: "Entrée ajoutée" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
