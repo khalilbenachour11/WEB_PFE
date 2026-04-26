@@ -84,12 +84,13 @@ exports.ajouter = async (req, res) => {
     : new Date().toISOString().slice(0, 19).replace("T", " ");
 
   try {
-    const doublon = await checkDoublon(id_ligne);
-    if (doublon)
-      return res.json({
-        success: false,
-        message: `Cette ligne est déjà en cours chez ${doublon.prenom} ${doublon.nom}`,
-      });
+    const doublon = await checkDoublon(id_ligne, matricule_agent);
+
+   if (doublon)
+  return res.json({
+    success: false,
+    message: `Vous avez déjà un voyage actif sur cette ligne`,
+  });
 
     const [result] = await db.promise().query(
       `INSERT INTO billetterie.voyage (id_ligne, id_appareil, matricule_agent, date_heure, type, statut)

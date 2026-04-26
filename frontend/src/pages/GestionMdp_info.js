@@ -68,7 +68,7 @@ function ModalMdp({ agent, onClose, onSuccess }) {
   return (
     <div className="modal-overlay">
       <div className="modal-box">
-        <div className="modal-icon">{isAjout ? '➕' : '🔑'}</div>
+        
         <div className="modal-title">
           {isAjout ? 'Ajouter un mot de passe' : 'Modifier le mot de passe'}
         </div>
@@ -227,19 +227,19 @@ export default function GestionMdp_info() {
                 </td>
                 <td>
                   {u.has_password
-                    ? <span className="badge-role informatique">✓ Défini</span>
+                    ? <span className="badge-role informatique">Défini</span>
                     : <span className="badge-role" style={{ background: '#fef3c7', color: '#92400e' }}>✗ Non défini</span>
                   }
                 </td>
                 <td>
                   {u.role_web === 'informatique' ? (
-                    <span style={{ color: '#8A94A6', fontSize: '0.8rem' }}>— protégé —</span>
+                    <span style={{ color: '#8A94A6', fontSize: '0.8rem' }}>protégé </span>
                   ) : (
                     <button
                       className={`action-btn ${u.has_password ? 'edit' : 'add'}`}
                       onClick={() => setSelectedAgent(u)}
                     >
-                      {u.has_password ? '🔑 Modifier MDP' : '➕ Ajouter MDP'}
+                      {u.has_password ? ' Modifier MDP' : 'Ajouter MDP'}
                     </button>
                   )}
                 </td>

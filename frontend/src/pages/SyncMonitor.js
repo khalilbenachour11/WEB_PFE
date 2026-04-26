@@ -244,10 +244,10 @@ export default function SyncMonitor() {
   // ── KPI config ──────────────────────────────────────────────────────────
 
   var kpis = [
-    { icon: "📱", label: "Total agents",       value: agents.length,    color: "blue",  warn: false },
-    { icon: "🟢", label: "En ligne",           value: online.length,    color: "green", warn: false },
-    { icon: "⚠️", label: "Anomalies",          value: anomalies.length, color: "gold",  warn: anomalies.length > 0 },
-    { icon: "⏳", label: "Tickets en attente", value: pending,          color: "blue",  warn: pending > 0 },
+    {  label: "Total agents",       value: agents.length,    color: "blue",  warn: false },
+    {  label: "En ligne",           value: online.length,    color: "green", warn: false },
+    { label: "Anomalies",          value: anomalies.length, color: "gold",  warn: anomalies.length > 0 },
+    {  label: "Tickets en attente", value: pending,          color: "blue",  warn: pending > 0 },
   ];
 
   // ── render ──────────────────────────────────────────────────────────────
@@ -330,7 +330,8 @@ export default function SyncMonitor() {
             className: "dashboard-card " + k.color,
             style:     k.warn && k.value > 0 ? { borderTop: "3px solid var(--red)" } : {},
           },
-          React.createElement("div", { className: "card-icon-wrap" }, k.icon),
+          
+          
           React.createElement("div", { className: "card-number", style: { fontSize: "1.6rem" } }, k.value),
           React.createElement("div", { className: "card-label" }, k.label)
         );

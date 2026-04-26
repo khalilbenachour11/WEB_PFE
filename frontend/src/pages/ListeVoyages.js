@@ -270,7 +270,8 @@ function ModalWrapper({ icon, title, onClose, children, footer }) {
   );
 }
 
-function ModalAjouterVoyage({ matricule, appareil, onClose, onSuccess, tousLesVoyages }) {
+// ── voyagesReceveur = voyages du receveur courant uniquement (passé depuis ReceveurCard)
+function ModalAjouterVoyage({ matricule, appareil, onClose, onSuccess, voyagesReceveur }) {
   const [lignes, setLignes] = useState([]);
   const [segments, setSegments] = useState([]);
   const [form, setForm] = useState({ id_ligne: "", date_heure: "", type: "" });
@@ -295,8 +296,10 @@ function ModalAjouterVoyage({ matricule, appareil, onClose, onSuccess, tousLesVo
     if (!form.date_heure) return setError("Veuillez choisir une date et heure.");
     if (new Date(form.date_heure) <= new Date()) return setError("La date doit être dans le futur.");
     if (!appareil) return setError("Aucun appareil actif pour ce receveur.");
-    if (tousLesVoyages.find((v) => v.id_ligne === parseInt(form.id_ligne) && v.statut !== "cloture"))
-      return setError("Un voyage actif existe déjà pour cette ligne.");
+
+    // ✅ Vérifie doublon uniquement sur les voyages de CE receveur
+    if (voyagesReceveur.find((v) => v.id_ligne === parseInt(form.id_ligne) && v.statut !== "cloture"))
+      return setError("Vous avez déjà un voyage actif sur cette ligne.");
 
     setLoading(true);
     try {
@@ -458,7 +461,7 @@ function ModalSupprimerVoyage({ voyage, lignesMap, onClose, onSuccess }) {
 // CARTE RECEVEUR
 // ══════════════════════════════════════════════════════════════════════════════
 
-function ReceveurCard({ receveur, lignesMap, onVoyageAdded, onNotify, tousLesVoyages }) {
+function ReceveurCard({ receveur, lignesMap, onVoyageAdded, onNotify }) {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState("tous");
   const [showAjouter, setShowAjouter] = useState(false);
@@ -504,7 +507,7 @@ function ReceveurCard({ receveur, lignesMap, onVoyageAdded, onNotify, tousLesVoy
         <ModalAjouterVoyage
           matricule={receveur.matricule_agent}
           appareil={appareil}
-          tousLesVoyages={tousLesVoyages}
+          voyagesReceveur={voyages}
           onClose={() => setShowAjouter(false)}
           onSuccess={onVoyageAdded}
         />
@@ -681,8 +684,6 @@ export default function ListeVoyages() {
     return matchSearch && matchLigne && matchDate;
   });
 
-  const tousLesVoyages = receveurs.flatMap((r) => r.voyages);
-
   return (
     <div>
       <Notification message={message} onDone={() => setMessage({ text: "", type: "" })} />
@@ -728,7 +729,6 @@ export default function ListeVoyages() {
             receveur={r}
             lignesMap={lignesMap}
             onNotify={setMessage}
-            tousLesVoyages={tousLesVoyages}
             onVoyageAdded={handleVoyageAdded}
           />
         ))

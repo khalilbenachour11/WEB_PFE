@@ -3,13 +3,13 @@ const db = require("../config/database");
 /**
  * Vérifie si une ligne est déjà active chez un receveur.
  */
-async function checkDoublon(id_ligne) {
+async function checkDoublon(id_ligne, matricule_agent) {
   const [rows] = await db.promise().query(
     `SELECT v.id_voyage, ag.nom, ag.prenom
      FROM billetterie.voyage v
      JOIN base_global.agent ag ON v.matricule_agent = ag.matricule_agent
-     WHERE v.id_ligne = ? AND v.statut != 'cloture'`,
-    [id_ligne],
+     WHERE v.id_ligne = ? AND v.matricule_agent = ? AND v.statut != 'cloture'`,
+    [id_ligne, matricule_agent],
   );
   return rows.length > 0 ? rows[0] : null;
 }

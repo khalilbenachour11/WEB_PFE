@@ -4,7 +4,7 @@ import '../styles/global.css';
 
 const menuByRole = {
   informatique: [
-    { path: '/gestion-roles', icon: '🔑', label: 'Gestion des rôles' },
+    { path: '/gestion-roles', icon: '👥', label: 'Gestion des rôles' },
     { path: '/gestion-mdp',   icon: '🔑', label: 'Gestion mots de passe' },
   ],
   direction: [

@@ -137,10 +137,10 @@ function VoyageTimeline({ idVoyage, onClose }) {
 function KpiCards({ stats }) {
   if (!stats) return null;
   const cards = [
-    { label: "Total événements", value: stats.total,         color: "var(--navy)",  icon: "📋" },
-    { label: "Clôtures",         value: stats.clotures,      color: "var(--green)", icon: "✅" },
-    { label: "Activations",      value: stats.activations,   color: "#c9a84c",      icon: "🟡" },
-    { label: "Réactivations",    value: stats.reactivations, color: "#1a73e8",      icon: "🔄" },
+    { label: "Total événements", value: stats.total,         color: "var(--navy)" },
+    { label: "Clôtures",         value: stats.clotures,      color: "var(--green)"},
+    { label: "Activations",      value: stats.activations,   color: "#c9a84c" },
+    { label: "Réactivations",    value: stats.reactivations, color: "#1a73e8" },
   ];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
@@ -150,7 +150,7 @@ function KpiCards({ stats }) {
           border: "1px solid var(--gray-100)", boxShadow: "var(--shadow-sm)",
           borderTop: `3px solid ${c.color}`,
         }}>
-          <div style={{ fontSize: "1.4rem", marginBottom: 8 }}>{c.icon}</div>
+          <div style={{ fontSize: "1.4rem", marginBottom: 8 }}></div>
           <div style={{ fontSize: "0.72rem", color: "var(--gray-400)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 4 }}>
             {c.label}
           </div>

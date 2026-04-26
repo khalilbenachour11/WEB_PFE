@@ -111,7 +111,7 @@ function ModalTransactions({ journee, onClose }) {
         <div className="modal-header">
           <div>
             <h2 className="modal-title">
-              🧾 Transactions — {journee.prenom} {journee.nom}
+               Transactions — {journee.prenom} {journee.nom}
             </h2>
             <div style={{ fontSize: "0.78rem", color: "var(--gray-400)", marginTop: 2 }}>
               {fmtDate(journee.date)} · {journee.nom_ligne || `Ligne #${journee.id_ligne}`}
@@ -338,13 +338,12 @@ function ModalRapportDetail({ journee, onClose }) {
           <div className="form-section-title" style={{ marginBottom: 14 }}>Résumé de la journée</div>
           <div className="ctrl-rapport-kpi-grid">
             <div className="ctrl-rapport-kpi-item green">
-              <div className="ctrl-rk-icon">💰</div>
               <div className="ctrl-rk-label">Recette totale</div>
               <div className="ctrl-rk-value">{fmtDT(r.total_ms)}</div>
               <div className="ctrl-rk-sub">{fmt(r.total_ms)} ms</div>
             </div>
             <div className="ctrl-rapport-kpi-item navy">
-              <div className="ctrl-rk-icon">🎟️</div>
+              
               <div className="ctrl-rk-label">Tickets vendus</div>
               <div className="ctrl-rk-value">{r.nb_tickets}</div>
               <div className="ctrl-rk-sub">{r.nb_payants} payants · {r.nb_gratuits} gratuits</div>
@@ -574,28 +573,27 @@ export default function ControleurRecettes() {
       {/* KPIs */}
       <div className="kpi-controleur-grid">
         <div className="kpi-controleur-card green">
-          <div className="kpi-ctrl-icon">💰</div>
+          
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{fmtDT(totalRecette)}</div>
             <div className="kpi-ctrl-label">Recette totale</div>
           </div>
         </div>
         <div className="kpi-controleur-card navy">
-          <div className="kpi-ctrl-icon">🎟️</div>
+          
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{fmt(totalTickets)}</div>
             <div className="kpi-ctrl-label">Total tickets</div>
           </div>
         </div>
         <div className="kpi-controleur-card navy">
-          <div className="kpi-ctrl-icon">✓</div>
+          
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{fmt(totalPayants)}</div>
             <div className="kpi-ctrl-label">Tickets payants</div>
           </div>
         </div>
         <div className="kpi-controleur-card gold">
-          <div className="kpi-ctrl-icon">○</div>
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{fmt(totalGratuits)}</div>
             <div className="kpi-ctrl-label">Tickets gratuits</div>
@@ -701,14 +699,14 @@ export default function ControleurRecettes() {
                             onClick={() => setModalTransac(j)}
                             title="Voir les transactions"
                           >
-                            🧾 Transaction
+                            Transaction
                           </button>
                           <button
                             className="btn-ctrl-detail"
                             onClick={() => setModalDetail(j)}
                             title="Voir le rapport détaillé"
                           >
-                            👁 Détail
+                             Détail
                           </button>
                         </div>
                       </td>

@@ -425,7 +425,7 @@ export default function GestionRoles({ user }) {
                           alignSelf: "center",
                         }}
                       >
-                        — protégé —
+                        protégé 
                       </span>
                     )}
                   </td>
