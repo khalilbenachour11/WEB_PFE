@@ -22,6 +22,7 @@ const menuByRole = {
   controleur: [
     { path: '/',             icon: '📊', label: 'Contrôle des recettes' },
     { path: '/sync-monitor', icon: '📡', label: 'Sync monitor' },
+    { path: '/anomalies', icon: '🔧', label: 'Gestion anomalies' },
   ],
 };
 

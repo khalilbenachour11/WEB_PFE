@@ -19,7 +19,7 @@ exports.getJournees = async (req, res) => {
         l.nom_ligne,
         MIN(CONVERT_TZ(tv.date_heure, 'UTC', 'Africa/Tunis')) AS debut_service,
         MAX(CONVERT_TZ(tv.date_heure, 'UTC', 'Africa/Tunis')) AS fin_service,
-        COUNT(tv.id_ticket) AS nb_tickets,
+        SUM(tv.quantite) AS nb_tickets,
         SUM(CASE WHEN tv.montant_total > 0 THEN tv.quantite ELSE 0 END) AS nb_payants,
         SUM(CASE WHEN tv.montant_total = 0 THEN tv.quantite ELSE 0 END) AS nb_gratuits,
         COALESCE(SUM(tv.montant_total), 0) AS recette_ms
@@ -68,8 +68,8 @@ exports.getTickets = async (req, res) => {
     // Formater la date correctement
     const dateFormatted = new Date(date).toISOString().split("T")[0];
 
-    console.log("📍 getTickets:", { matricule_agent, dateFormatted });
 
+    
     const [rows] = await db.promise().query(
       `SELECT
         tv.id_ticket,
@@ -90,7 +90,6 @@ exports.getTickets = async (req, res) => {
       [matricule_agent, dateFormatted]
     );
 
-    console.log("✅ Tickets trouvés:", rows.length);
 
     res.json({ success: true, tickets: rows });
   } catch (err) {
@@ -117,12 +116,11 @@ exports.getRapportDetail = async (req, res) => {
     // Formater la date correctement
     const dateFormatted = new Date(date).toISOString().split("T")[0];
 
-    console.log("📍 getRapportDetail:", { matricule_agent, dateFormatted });
 
     // ── Résumé global ──
     const [[resume]] = await db.promise().query(
       `SELECT
-        COUNT(tv.id_ticket) AS nb_tickets,
+        SUM(tv.quantite) AS nb_tickets,
         SUM(CASE WHEN tv.montant_total > 0 THEN tv.quantite ELSE 0 END) AS nb_payants,
         SUM(CASE WHEN tv.montant_total = 0 THEN tv.quantite ELSE 0 END) AS nb_gratuits,
         COALESCE(SUM(tv.montant_total), 0) AS total_ms
@@ -175,7 +173,7 @@ exports.getRapportDetail = async (req, res) => {
         v.type,
         v.id_ligne,
         l.nom_ligne,
-        COUNT(tv.id_ticket) AS nb_tickets,
+        SUM(tv.quantite) AS nb_tickets,
         SUM(CASE WHEN tv.montant_total = 0 THEN tv.quantite ELSE 0 END) AS nb_gratuits,
         SUM(CASE WHEN tv.montant_total > 0 THEN tv.quantite ELSE 0 END) AS nb_payants,
         COALESCE(SUM(tv.montant_total), 0) AS total
@@ -191,13 +189,7 @@ exports.getRapportDetail = async (req, res) => {
       [dateFormatted, matricule_agent, dateFormatted]
     );
 
-    console.log("✅ Données trouvées:", {
-      nb_tickets: resume.nb_tickets,
-      total_ms: resume.total_ms,
-      tickets_count: tickets.length,
-      par_tarif_count: par_tarif.length,
-      par_voyage_count: par_voyage.length,
-    });
+    
 
     res.json({
       success: true,

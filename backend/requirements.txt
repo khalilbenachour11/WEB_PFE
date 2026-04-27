@@ -1,0 +1,29 @@
+# ══════════════════════════════════════════════════════════════════
+# SRTB — Dépendances du projet
+# Installation Backend  : cd backend  && npm install
+# Installation Frontend : cd frontend && npm install
+# ══════════════════════════════════════════════════════════════════
+
+
+# ── BACKEND (Node.js / Express) ───────────────────────────────────
+
+express@4.19.2
+mysql2@3.9.7
+bcrypt@5.1.1
+cors@2.8.5
+dotenv@16.4.5
+
+# Dev
+nodemon@3.1.0
+
+
+# ── FRONTEND (React.js) ───────────────────────────────────────────
+
+react@18.3.1
+react-dom@18.3.1
+react-router-dom@6.23.1
+react-scripts@5.0.1
+axios@1.7.2
+xlsx@0.18.5
+react-icons@5.2.1
+web-vitals@2.1.4

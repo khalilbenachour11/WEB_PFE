@@ -9,5 +9,6 @@ router.use(require('./recettes.routes'));
 router.use(require('./roles.routes'));
 router.use(require('./voyageHistorique.routes'));
 router.use(require('./controleur.routes'));
+router.use(require('./anomalies.routes'));
 
 module.exports = router;

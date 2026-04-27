@@ -74,7 +74,6 @@ export default function Recettes() {
 
       {/* Total Global */}
       <div className="recettes-total-card">
-        <div className="recettes-total-icon">💰</div>
         <div className="recettes-total-info">
           <div className="recettes-total-label">Recettes Total Global</div>
           <div className="recettes-total-amount">
@@ -88,7 +87,7 @@ export default function Recettes() {
         {/* Par Receveur */}
         <div className="recettes-card">
           <div className="recettes-card-header">
-            <div className="recettes-card-title">👤 Recettes par Receveur</div>
+            <div className="recettes-card-title">Recettes par Receveur</div>
           </div>
           <table className="recettes-table">
             <thead>
@@ -113,7 +112,7 @@ export default function Recettes() {
         {/* Par Ligne */}
         <div className="recettes-card">
           <div className="recettes-card-header">
-            <div className="recettes-card-title">🚌 Recettes par Ligne</div>
+            <div className="recettes-card-title"> Recettes par Ligne</div>
           </div>
           <table className="recettes-table">
             <thead>
@@ -137,7 +136,7 @@ export default function Recettes() {
       {/* Par Date */}
       <div className="recettes-card" style={{ marginBottom: 24 }}>
         <div className="recettes-card-header">
-          <div className="recettes-card-title">📅 Recettes par Date (30 derniers jours)</div>
+          <div className="recettes-card-title"> Recettes par Date (30 derniers jours)</div>
         </div>
         <table className="recettes-table">
           <thead>

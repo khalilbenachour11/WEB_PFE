@@ -19,6 +19,8 @@ import GestionMdpInfo from './pages/GestionMdp_info';
 import HistoriqueVoyages from './pages/HistoriqueVoyages';
 import ControleurRecettes from './pages/ControleurRecettes';
 import SyncMonitor from './pages/SyncMonitor';
+import GestionAnomalies from './pages/GestionAnomalies';
+
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -76,6 +78,8 @@ export default function App() {
               <>
                 <Route path="/"             element={<ControleurRecettes />} />
                 <Route path="/sync-monitor" element={<SyncMonitor />} />
+                <Route path="/anomalies" element={<GestionAnomalies />} />
+
               </>
             )}
 
