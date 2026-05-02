@@ -21,10 +21,11 @@ const fmtDT = (ms) => {
 };
 
 const fmtAgo = (sec) => {
-  if (sec == null) return "—";
-  if (sec < 60)   return `${sec}s`;
-  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
-  return `${Math.floor(sec / 3600)}h`;
+  const s = Number(sec);
+  if (sec == null || isNaN(s)) return "—";
+  if (s < 60)   return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  return `${Math.floor(s / 3600)}h`;
 };
 
 const fmtTime = (isoString) => {
@@ -36,14 +37,22 @@ const fmtTime = (isoString) => {
   });
 };
 
+// ── isAgentOnline ─────────────────────────────────────────────────────────────
+// Single source of truth — always coerce seconds_ago to Number first.
+
+function isAgentOnline(agent) {
+  const sec = Number(agent.seconds_ago);
+  return !isNaN(sec) && sec < OFFLINE_AFTER_SECONDS;
+}
+
 // ── StatCell ──────────────────────────────────────────────────────────────────
 
 function StatCell(props) {
-  var label    = props.label;
-  var value    = props.value;
-  var warn     = props.warn;
-  var small    = props.small;
-  var fullRow  = props.fullRow;
+  var label   = props.label;
+  var value   = props.value;
+  var warn    = props.warn;
+  var small   = props.small;
+  var fullRow = props.fullRow;
 
   return React.createElement(
     "div",
@@ -91,9 +100,11 @@ function StatCell(props) {
 function AgentCard(props) {
   var agent = props.agent;
 
-  var isOnline   = agent.seconds_ago != null && agent.seconds_ago < OFFLINE_AFTER_SECONDS;
-  var hasFailure = agent.failed_count > 0;
-  var hasPending = agent.pending_count > 0;
+  // Always coerce to Number — DB may return strings when dateStrings is ON
+  var secondsAgo = Number(agent.seconds_ago);
+  var online     = !isNaN(secondsAgo) && secondsAgo < OFFLINE_AFTER_SECONDS;
+  var hasFailure = Number(agent.failed_count)  > 0;
+  var hasPending = Number(agent.pending_count) > 0;
 
   return React.createElement(
     "div",
@@ -101,7 +112,11 @@ function AgentCard(props) {
       className: "card",
       style: {
         padding:    "18px 20px",
-        borderLeft: "4px solid " + (hasFailure ? "var(--red)" : isOnline ? "var(--green)" : "var(--gray-200)"),
+        borderLeft: "4px solid " + (
+          hasFailure ? "var(--red)"      :
+          online     ? "var(--green)"    :
+                       "var(--gray-200)"
+        ),
         transition: "border-color 0.4s",
       },
     },
@@ -120,19 +135,18 @@ function AgentCard(props) {
         ),
         React.createElement("span", { className: "badge-matricule" }, agent.matricule_agent)
       ),
-      React.createElement(SyncStatusBadge, { secondsAgo: agent.seconds_ago })
+      React.createElement(SyncStatusBadge, { secondsAgo: secondsAgo })
     ),
 
     // Stats grid
     React.createElement(
       "div",
       { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 } },
-
-      React.createElement(StatCell, { label: "En attente",      value: agent.pending_count,        warn: hasPending }),
-      React.createElement(StatCell, { label: "Échecs",          value: agent.failed_count,         warn: hasFailure }),
-      React.createElement(StatCell, { label: "Opérations auj.", value: fmt(agent.tickets_today),   warn: false }),
-      React.createElement(StatCell, { label: "Qté tickets auj.", value: fmt(agent.quantite_today), warn: false }),
-      React.createElement(StatCell, { label: "Recette auj.",    value: fmtDT(agent.recette_today_ms), warn: false, small: true, fullRow: true })
+      React.createElement(StatCell, { label: "En attente",       value: Number(agent.pending_count),  warn: hasPending }),
+      React.createElement(StatCell, { label: "Échecs",           value: Number(agent.failed_count),   warn: hasFailure }),
+      React.createElement(StatCell, { label: "Opérations auj.",  value: fmt(agent.tickets_today),     warn: false }),
+      React.createElement(StatCell, { label: "Qté tickets auj.", value: fmt(agent.quantite_today),    warn: false }),
+      React.createElement(StatCell, { label: "Recette auj.",     value: fmtDT(agent.recette_today_ms),warn: false, small: true, fullRow: true })
     ),
 
     // Footer
@@ -148,7 +162,7 @@ function AgentCard(props) {
           flexWrap:  "wrap",
         },
       },
-      React.createElement("span", null, "Vu il y a " + fmtAgo(agent.seconds_ago)),
+      React.createElement("span", null, "Vu il y a " + fmtAgo(secondsAgo)),
       React.createElement("span", null, "Sync " + fmtTime(agent.last_sync_at)),
       agent.app_version
         ? React.createElement("span", null, "v" + agent.app_version)
@@ -172,11 +186,11 @@ export default function SyncMonitor() {
   var filter      = filterState[0];
   var setFilter   = filterState[1];
 
-  // ── derived values ──────────────────────────────────────────────────────
+  // ── derived values — always coerce seconds_ago to Number ───────────────
 
-  var online    = agents.filter(function(a) { return a.seconds_ago < OFFLINE_AFTER_SECONDS; });
-  var offline   = agents.filter(function(a) { return a.seconds_ago >= OFFLINE_AFTER_SECONDS; });
-  var anomalies = agents.filter(function(a) { return a.failed_count > 0; });
+  var online    = agents.filter(function(a) { return isAgentOnline(a); });
+  var offline   = agents.filter(function(a) { return !isAgentOnline(a); });
+  var anomalies = agents.filter(function(a) { return Number(a.failed_count) > 0; });
   var pending   = agents.reduce(function(s, a) { return s + Number(a.pending_count || 0); }, 0);
 
   var filtered = agents.filter(function(a) {
@@ -186,12 +200,11 @@ export default function SyncMonitor() {
       (a.prenom + " " + a.nom).toLowerCase().includes(q) ||
       String(a.matricule_agent).includes(q);
 
-    var isOnline = a.seconds_ago < OFFLINE_AFTER_SECONDS;
     var matchFilter =
       filter === "all"      ||
-      (filter === "online"   && isOnline)          ||
-      (filter === "offline"  && !isOnline)          ||
-      (filter === "anomalie" && a.failed_count > 0);
+      (filter === "online"   && isAgentOnline(a))              ||
+      (filter === "offline"  && !isAgentOnline(a))             ||
+      (filter === "anomalie" && Number(a.failed_count) > 0);
 
     return matchSearch && matchFilter;
   });
@@ -213,14 +226,14 @@ export default function SyncMonitor() {
           a.matricule_agent,
           a.prenom,
           a.nom,
-          a.seconds_ago < OFFLINE_AFTER_SECONDS ? "En ligne" : "Hors ligne",
-          a.pending_count,
-          a.failed_count,
+          isAgentOnline(a) ? "En ligne" : "Hors ligne",
+          Number(a.pending_count),
+          Number(a.failed_count),
           a.tickets_today,
           a.quantite_today,
           a.recette_today_ms,
           a.last_sync_at,
-          a.seconds_ago,
+          Number(a.seconds_ago),
           a.app_version,
         ];
       })
@@ -235,19 +248,19 @@ export default function SyncMonitor() {
   // ── filter button config ────────────────────────────────────────────────
 
   var filterButtons = [
-    { key: "all",      label: "Tous ("         + agents.length    + ")" },
-    { key: "online",   label: "En ligne ("      + online.length    + ")" },
-    { key: "offline",  label: "Hors ligne ("    + offline.length   + ")" },
-    { key: "anomalie", label: "Anomalies ("     + anomalies.length + ")" },
+    { key: "all",      label: "Tous ("      + agents.length    + ")" },
+    { key: "online",   label: "En ligne ("  + online.length    + ")" },
+    { key: "offline",  label: "Hors ligne ("+ offline.length   + ")" },
+    { key: "anomalie", label: "Anomalies (" + anomalies.length + ")" },
   ];
 
   // ── KPI config ──────────────────────────────────────────────────────────
 
   var kpis = [
-    {  label: "Total agents",       value: agents.length,    color: "blue",  warn: false },
-    {  label: "En ligne",           value: online.length,    color: "green", warn: false },
+    { label: "Total agents",       value: agents.length,    color: "blue",  warn: false },
+    { label: "En ligne",           value: online.length,    color: "green", warn: false },
     { label: "Anomalies",          value: anomalies.length, color: "gold",  warn: anomalies.length > 0 },
-    {  label: "Tickets en attente", value: pending,          color: "blue",  warn: pending > 0 },
+    { label: "Tickets en attente", value: pending,          color: "blue",  warn: pending > 0 },
   ];
 
   // ── render ──────────────────────────────────────────────────────────────
@@ -330,8 +343,6 @@ export default function SyncMonitor() {
             className: "dashboard-card " + k.color,
             style:     k.warn && k.value > 0 ? { borderTop: "3px solid var(--red)" } : {},
           },
-          
-          
           React.createElement("div", { className: "card-number", style: { fontSize: "1.6rem" } }, k.value),
           React.createElement("div", { className: "card-label" }, k.label)
         );
