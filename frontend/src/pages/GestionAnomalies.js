@@ -14,12 +14,47 @@ const ITEMS_PER_PAGE = 15;
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
 
+/**
+ * Format a DB date string "YYYY-MM-DD HH:MM:SS" for display.
+ * NEVER uses new Date() to avoid any UTC/timezone shift.
+ * Pure string manipulation only.
+ */
 const fmtDate = (d) => {
   if (!d) return '—';
-  return new Date(d).toLocaleString('fr-FR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
+  const s = String(d).trim().replace('T', ' ');
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+  if (!m) return s;
+  const [, yyyy, MM, dd, hh, mm, ss] = m;
+  return `${dd}/${MM}/${yyyy} ${hh}:${mm}:${ss}`;
+};
+
+/**
+ * Convert DB date string to datetime-local input value.
+ * Pure string manipulation — never new Date().
+ */
+const toDatetimeLocal = (d) => {
+  if (!d) return '';
+  return String(d).trim().replace(' ', 'T').slice(0, 19);
+};
+
+/**
+ * Convert datetime-local value back to "YYYY-MM-DD HH:MM:SS" for the backend.
+ * Never uses new Date().
+ */
+const fromDatetimeLocal = (v) => {
+  if (!v) return null;
+  return String(v).replace('T', ' ');
+};
+
+const extractAxiosError = (err) => {
+  if (err.response) {
+    const status = err.response.status;
+    const data   = err.response.data;
+    const msg    = data?.message || data?.error || JSON.stringify(data);
+    return `Erreur serveur ${status}: ${msg}`;
+  }
+  if (err.request) return 'Aucune réponse du serveur — vérifiez que le serveur est démarré sur le port 5000.';
+  return `Erreur: ${err.message}`;
 };
 
 const STATUT_CONFIG = {
@@ -43,7 +78,6 @@ function StatutBadge({ statut }) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PARSER EXCEL — adapté au format exact de l'app mobile SRTB
-// Sheets: Résumé | Tickets | Par tarif | Gratuits / catégorie | Par segment | Par voyage
 // ══════════════════════════════════════════════════════════════════════════════
 
 function parseExcelMobile(workbook) {
@@ -52,22 +86,17 @@ function parseExcelMobile(workbook) {
   let matricule_agent = null;
 
   // ── 1. Lire matricule depuis sheet "Résumé" ────────────────────────────────
-  // Format: ligne "Agent : Ali Ben Salem" + ligne "Matricule : 2002"
   const resumeSheet = workbook.Sheets['Résumé'];
   if (resumeSheet) {
     const rows = XLSX.utils.sheet_to_json(resumeSheet, { header: 1, defval: '' });
     for (const row of rows) {
       for (const cell of row) {
         const cellStr = String(cell || '');
-        // Chercher matricule directement dans le nom du fichier ou dans les cellules
         const matchMat = cellStr.match(/(?:matricule|mat)[^\d]*(\d{4,6})/i);
         if (matchMat) { matricule_agent = parseInt(matchMat[1]); break; }
       }
       if (matricule_agent) break;
     }
-
-    // Si pas trouvé par regex, chercher dans le nom du fichier (ex: rapport_journee_2002_...)
-    // → sera passé en paramètre depuis handleFile
   }
 
   // ── 2. Lire tickets depuis sheet "Tickets" ─────────────────────────────────
@@ -77,10 +106,8 @@ function parseExcelMobile(workbook) {
     return { tickets, warnings, matricule_agent };
   }
 
-  // sheet_to_json avec header:1 pour récupérer toutes les lignes brutes
   const allRows = XLSX.utils.sheet_to_json(ticketSheet, { header: 1, defval: '' });
 
-  // Trouver la ligne d'entête (#, Date, Heure, Voyage, ...)
   let headerIdx = -1;
   let headers   = [];
   for (let i = 0; i < allRows.length; i++) {
@@ -97,58 +124,67 @@ function parseExcelMobile(workbook) {
     return { tickets, warnings, matricule_agent };
   }
 
-  // Index de chaque colonne
   const col = (name) => headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
-  const iNum      = col('#');
-  const iDate     = col('Date');
-  const iHeure    = col('Heure');
-  const iVoyage   = col('Voyage');
-  const iDepart   = col('Départ');
-  const iArrivee  = col('Arrivée');
-  
-  const iTarif    = col('Tarif');
-  const iQte      = col('Qté');
-  const iPrix     = col('Prix unit');
-  const iTotal    = col('Total');
-  const iSync     = col('Sync');
+  const iNum     = col('#');
+  const iDate    = col('Date');
+  const iHeure   = col('Heure');
+  const iVoyage  = col('Voyage');
+  const iDepart  = col('Départ');
+  const iArrivee = col('Arrivée');
+  const iTarif   = col('Tarif');
+  const iQte     = col('Qté');
+  const iPrix    = col('Prix unit');
+  const iTotal   = col('Total');
+  const iSync    = col('Sync');
 
-  // Lire les lignes de données
   for (let i = headerIdx + 1; i < allRows.length; i++) {
     const row  = allRows[i];
     const sync = String(row[iSync] || '').toLowerCase().trim();
 
-    // Ignorer lignes vides ou lignes TOTAL
     const numCell = String(row[iNum] || '').trim();
     if (!numCell || numCell.toUpperCase() === 'TOTAL' || !sync) continue;
 
-    // Garder uniquement failed et pending
     if (sync !== 'failed' && sync !== 'pending') continue;
 
-    // Parser id_voyage depuis "#59" → 59
     const voyageRaw = String(row[iVoyage] || '');
-    const id_voyage  = parseInt(voyageRaw.replace(/[^0-9]/g, '')) || null;
+    const id_voyage = parseInt(voyageRaw.replace(/[^0-9]/g, '')) || null;
 
-    // Parser date_heure: "16/04/2026" + "00:16" → "2026-04-16 00:16:00"
     let date_heure = null;
-    const dateRaw  = String(row[iDate]  || '').trim();
-    const heureRaw = String(row[iHeure] || '00:00').trim();
+    const dateRaw   = String(row[iDate] || '').trim();
+    const heureCell = row[iHeure];
+
     if (dateRaw) {
       const parts = dateRaw.split('/');
       if (parts.length === 3) {
-        // dd/MM/yyyy → yyyy-MM-dd
-        date_heure = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')} ${heureRaw}:00`;
+        const dateStr = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+
+        // ── TIME FIX ──────────────────────────────────────────────────────────
+        // XLSX numeric time cells are a fraction of a day representing LOCAL time
+        // as written by the mobile app (Africa/Tunis = UTC+1).
+        // Do NOT add any timezone offset — the value already is local time.
+        // Simply convert the fraction to HH:MM:SS directly.
+        let heureFormatted = '00:00:00';
+        if (typeof heureCell === 'number') {
+          // heureCell is e.g. 0.46611... for 11:11:14 local time
+          const totalSec = Math.round(heureCell * 86400);
+          const hh = Math.floor(totalSec / 3600) % 24;
+          const mm = Math.floor((totalSec % 3600) / 60);
+          const ss = totalSec % 60;
+          heureFormatted = `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+        } else {
+          const heureRaw = String(heureCell || '00:00').trim();
+          heureFormatted = heureRaw.split(':').length >= 3 ? heureRaw : heureRaw + ':00';
+        }
+
+        date_heure = `${dateStr} ${heureFormatted}`;
       }
     }
 
-    
-
-    // Type tarif en lowercase
     const type_tarif = String(row[iTarif] || '').trim().toLowerCase() || null;
 
     tickets.push({
       matricule_agent: matricule_agent,
       id_voyage:       id_voyage,
-      
       point_depart:    String(row[iDepart]  || '').trim() || null,
       point_arrivee:   String(row[iArrivee] || '').trim() || null,
       type_tarif:      type_tarif,
@@ -179,9 +215,7 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
     quantite:        anomalie.quantite        || 1,
     prix_unitaire:   anomalie.prix_unitaire   || 0,
     montant_total:   anomalie.montant_total   || 0,
-    date_heure:      anomalie.date_heure
-      ? new Date(anomalie.date_heure).toISOString().slice(0, 19)
-      : '',
+    date_heure:      toDatetimeLocal(anomalie.date_heure),
     matricule_agent: anomalie.matricule_agent || '',
   });
   const [loading, setLoading] = useState(false);
@@ -201,22 +235,9 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
     if (!form.id_voyage || !form.point_depart || !form.point_arrivee || !form.type_tarif)
       return setError('Veuillez remplir tous les champs obligatoires (*).');
     setLoading(true);
+    setError('');
     try {
-      // ── Vérifier doublon avant d'enregistrer ──────────────────────────────
-      const dateHeure = form.date_heure ? form.date_heure.replace('T', ' ') : null;
-      const checkRes = await axios.post(`${API}/anomalies/verifier`, {
-        tickets: [{
-          _index: 0,
-          id_voyage:       form.id_voyage,
-          matricule_agent: form.matricule_agent,
-          type_tarif:      form.type_tarif,
-          date_heure:      dateHeure,
-        }]
-      });
-      if (checkRes.data.success && checkRes.data.results[0]?.existeVendu) {
-        setLoading(false);
-        return setError(' Ce ticket existe déjà dans la base (ticket_vendu), enregistrement annulé.');
-      }
+      const dateHeure = fromDatetimeLocal(form.date_heure);
 
       const res = await axios.put(`${API}/anomalies/${anomalie.id}/enregistrer`, {
         ...form,
@@ -225,11 +246,16 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
         montant_total: parseInt(form.montant_total),
         date_heure:    dateHeure,
       });
-      if (res.data.success) { onSuccess(); onClose(); }
-      else setError(res.data.message || "Erreur lors de l'enregistrement.");
+
+      if (res.data.success) {
+        onSuccess();
+        onClose();
+      } else {
+        setError(res.data.message || "Erreur lors de l'enregistrement.");
+      }
     } catch (err) {
-      console.error('❌ Erreur enregistrer:', err);
-      setError('Erreur de connexion au serveur.');
+      console.error('❌ Enregistrer anomalie error:', err.response?.status, err.response?.data, err.message);
+      setError(extractAxiosError(err));
     }
     setLoading(false);
   };
@@ -243,7 +269,7 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
       >
         <div className="modal-header">
           <div>
-            <h2 className="modal-title"> Corriger l'anomalie #{anomalie.id}</h2>
+            <h2 className="modal-title">Corriger l'anomalie #{anomalie.id}</h2>
             <div style={{ fontSize: '0.78rem', color: 'var(--gray-400)', marginTop: 2 }}>
               {anomalie.prenom} {anomalie.nom}
               {anomalie.matricule_agent && ` — Matricule ${anomalie.matricule_agent}`}
@@ -255,7 +281,6 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
 
         <div style={{ padding: '20px 28px' }}>
 
-          {/* Erreur originale */}
           {anomalie.erreur && (
             <div className="alert alert-error" style={{ marginBottom: 20 }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠ Erreur originale :</div>
@@ -263,16 +288,16 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
             </div>
           )}
 
-          {error && <div className="alert alert-error">⚠ {error}</div>}
+          {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>⚠ {error}</div>}
 
           <div className="form-section-title">Informations du ticket</div>
 
           <div className="form-group">
-              <label className="form-label">ID Voyage *</label>
-              <input className="form-input" type="number"
-                value={form.id_voyage}
-                onChange={e => handleChange('id_voyage', e.target.value)} />
-            </div>
+            <label className="form-label">ID Voyage *</label>
+            <input className="form-input" type="number"
+              value={form.id_voyage}
+              onChange={e => handleChange('id_voyage', e.target.value)} />
+          </div>
 
           <div className="ligne-grid-2">
             <div className="form-group">
@@ -345,7 +370,7 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, padding: '16px 28px', borderTop: '1px solid var(--gray-200)' }}>
           <button className="btn btn-gray" onClick={onClose}>Annuler</button>
           <button className="btn" onClick={handleSubmit} disabled={loading}>
-            {loading ? 'Enregistrement...' : ' Enregistrer dans la base'}
+            {loading ? 'Enregistrement...' : 'Enregistrer dans la base'}
           </button>
         </div>
       </div>
@@ -358,27 +383,25 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function ModalImportExcel({ onClose, onSuccess }) {
-  const [tickets,      setTickets]      = useState([]);
-  const [warnings,     setWarnings]     = useState([]);
-  const [matricule,    setMatricule]    = useState(null);
-  const [loading,      setLoading]      = useState(false);
-  const [verifying,    setVerifying]    = useState(false);
-  const [doublons,     setDoublons]     = useState({}); // { index: { existeVendu, existeAnomalie } }
-  const [error,        setError]        = useState('');
-  const [fileName,     setFileName]     = useState('');
-  const [showPreview,  setShowPreview]  = useState(true);
-  // matricule manuel si non trouvé dans le fichier
+  const [tickets,         setTickets]         = useState([]);
+  const [warnings,        setWarnings]        = useState([]);
+  const [loading,         setLoading]         = useState(false);
+  const [verifying,       setVerifying]       = useState(false);
+  const [doublons,        setDoublons]        = useState({});
+  const [error,           setError]           = useState('');
+  const [fileName,        setFileName]        = useState('');
+  const [showPreview,     setShowPreview]     = useState(true);
   const [matriculeManuel, setMatriculeManuel] = useState('');
 
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setFileName(file.name);
+    setError('');
+    setDoublons({});
 
-    // Essayer d'extraire matricule depuis le nom de fichier
-    // ex: rapport_journee_complete_2002_16-04-2026.xlsx → 2002
     const matchNom = file.name.match(/(\d{4,6})/);
-    let matriculeNom = matchNom ? parseInt(matchNom[1]) : null;
+    const matriculeNom = matchNom ? parseInt(matchNom[1]) : null;
 
     const reader = new FileReader();
     reader.onload = (evt) => {
@@ -386,24 +409,19 @@ function ModalImportExcel({ onClose, onSuccess }) {
         const wb     = XLSX.read(evt.target.result, { type: 'binary' });
         const result = parseExcelMobile(wb);
 
-        // Priorité: sheet Résumé > nom fichier
         const mat = result.matricule_agent || matriculeNom;
         result.tickets = result.tickets.map(t => ({ ...t, matricule_agent: t.matricule_agent || mat }));
 
         setTickets(result.tickets);
         setWarnings(result.warnings);
-        setMatricule(mat);
         if (mat) setMatriculeManuel(String(mat));
-        setError('');
-        setDoublons({});
       } catch (err) {
-        setError('Erreur de lecture : ' + err.message);
+        setError('Erreur de lecture du fichier : ' + err.message);
       }
     };
     reader.readAsBinaryString(file);
   };
 
-  // Vérifier doublons dans la base
   const handleVerifier = async (ticketsList) => {
     if (!ticketsList.length) return;
     setVerifying(true);
@@ -412,44 +430,64 @@ function ModalImportExcel({ onClose, onSuccess }) {
       const res = await axios.post(`${API}/anomalies/verifier`, { tickets: payload });
       if (res.data.success) {
         const map = {};
-        for (const r of res.data.results) {
-          map[r.index] = r;
-        }
+        for (const r of res.data.results) map[r.index] = r;
         setDoublons(map);
       }
-    } catch { /* silencieux */ }
+    } catch (err) {
+      console.error('❌ Vérifier doublons error:', err.response?.status, err.response?.data, err.message);
+    }
     setVerifying(false);
   };
 
-  // Mettre à jour matricule dans tous les tickets si modifié manuellement
   const ticketsAvecMatricule = tickets.map(t => ({
     ...t,
     matricule_agent: matriculeManuel ? parseInt(matriculeManuel) : t.matricule_agent,
   }));
 
-  // Lancer la vérification dès qu'on a des tickets et un matricule
   useEffect(() => {
-    if (ticketsAvecMatricule.length > 0 && matriculeManuel) {
+    if (ticketsAvecMatricule.length > 0) {
       handleVerifier(ticketsAvecMatricule);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matriculeManuel, tickets]);
+  }, [tickets]);
 
   const handleImport = async () => {
-    if (!ticketsAvecMatricule.length)
-      return setError('Aucun ticket failed/pending trouvé.');
-    if (!matriculeManuel)
-      return setError('Veuillez saisir le matricule de l\'agent.');
+    // ── Only send tickets that are NOT already in the base ──────────────────
+    const nouveaux = ticketsAvecMatricule.filter((_, i) => {
+      const d = doublons[i];
+      return !d || !d.existe; // keep tickets where verification says it's new
+    });
+
+    if (nouveaux.length === 0)
+      return setError('Aucun nouveau ticket à importer — tous sont déjà présents dans la base.');
+
     setLoading(true);
+    setError('');
+
     try {
-      const res = await axios.post(`${API}/anomalies/importer`, { tickets: ticketsAvecMatricule });
+      const res = await axios.post(`${API}/anomalies/importer`, { tickets: nouveaux });
       if (res.data.success) {
-        onSuccess(`${res.data.inserted} anomalie(s) importée(s) avec succès.`);
+        const skipped = ticketsAvecMatricule.length - nouveaux.length;
+        const msg = skipped > 0
+          ? `${res.data.inserted} anomalie(s) importée(s) avec succès. ${skipped} doublon(s) ignoré(s).`
+          : `${res.data.inserted} anomalie(s) importée(s) avec succès.`;
+        onSuccess(msg);
         onClose();
-      } else setError(res.data.message || 'Erreur importation.');
-    } catch { setError('Erreur de connexion au serveur.'); }
+      } else {
+        setError(res.data.message || 'Erreur lors de l\'importation.');
+      }
+    } catch (err) {
+      console.error('❌ Import error:', err.response?.status, err.response?.data, err.message);
+      setError(extractAxiosError(err));
+    }
+
     setLoading(false);
   };
+
+  const verificationComplete = Object.keys(doublons).length === tickets.length && tickets.length > 0;
+  const nbDoublons  = Object.values(doublons).filter(d => d.existe).length;
+  const nbNouveaux  = tickets.length - nbDoublons;
+  const allDoublons = verificationComplete && nbDoublons === tickets.length;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -459,13 +497,12 @@ function ModalImportExcel({ onClose, onSuccess }) {
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 className="modal-title"> Importer rapport journée (Excel)</h2>
+          <h2 className="modal-title">Importer rapport journée (Excel)</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
         <div style={{ padding: '20px 28px' }}>
 
-          {/* Info format */}
           <div style={{
             background: 'rgba(13,43,94,0.04)', borderRadius: 8,
             padding: '12px 16px', marginBottom: 20,
@@ -476,17 +513,22 @@ function ModalImportExcel({ onClose, onSuccess }) {
             </div>
             <div style={{ color: 'var(--gray-600)', lineHeight: 1.6 }}>
               Sheet <strong>"Tickets"</strong> avec colonnes :
-              <strong> #, Date, Heure, Voyage, Départ, Arrivée, Segment, Tarif, Qté, Prix unit. (ms), Total (ms), Sync</strong>
+              <strong> #, Date, Heure, Voyage, Départ, Arrivées, Segment, Tarif, Qté, Prix unit. (ms), Total (ms), Sync</strong>
               <br />Seuls les tickets avec <strong>Sync = "failed"</strong> ou <strong>"pending"</strong> seront importés.
+              <br />Les tickets déjà présents dans la base seront automatiquement ignorés.
             </div>
           </div>
 
           {warnings.map((w, i) => (
             <div key={i} className="alert alert-error" style={{ marginBottom: 8 }}>⚠ {w}</div>
           ))}
-          {error && <div className="alert alert-error">⚠ {error}</div>}
 
-          {/* Fichier */}
+          {error && (
+            <div className="alert alert-error" style={{ marginBottom: 16, fontFamily: 'monospace', fontSize: '0.82rem' }}>
+              ⚠ {error}
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label">Fichier Excel (.xlsx) — rapport journée</label>
             <input type="file" accept=".xlsx,.xls" className="form-input"
@@ -494,30 +536,39 @@ function ModalImportExcel({ onClose, onSuccess }) {
               onChange={handleFile} />
           </div>
 
-          {/* Matricule agent */}
-          <div className="form-group">
-            <label className="form-label">
-              Matricule agent
-              {matricule
-                ? <span style={{ color: 'var(--green)', marginLeft: 8, fontSize: '0.78rem' }}>✓ Détecté automatiquement</span>
-                : <span style={{ color: 'var(--red)', marginLeft: 8, fontSize: '0.78rem' }}>* Non détecté — saisir manuellement</span>
-              }
-            </label>
-            <input className="form-input" type="number"
-              placeholder="Ex: 2002"
-              value={matriculeManuel}
-              onChange={e => setMatriculeManuel(e.target.value)} />
-          </div>
+          {tickets.length > 0 && (
+            <div className="form-group">
+              <label className="form-label">Matricule agent</label>
+              <div style={{
+                padding: '10px 14px', borderRadius: 8, fontSize: '0.9rem', fontWeight: 700,
+                background: matriculeManuel ? 'rgba(27,107,58,0.07)' : 'rgba(190,56,23,0.07)',
+                border: `1px solid ${matriculeManuel ? 'rgba(27,107,58,0.3)' : 'rgba(190,56,23,0.3)'}`,
+                color: matriculeManuel ? 'var(--green)' : 'var(--red)',
+              }}>
+                {matriculeManuel
+                  ? `✓ ${matriculeManuel}`
+                  : '⚠ Matricule non détecté dans le fichier'}
+              </div>
+            </div>
+          )}
 
-          {/* Résumé après lecture */}
           {tickets.length > 0 && (
             <>
               <div className="alert alert-success">
                 ✓ <strong>{tickets.length}</strong> ticket(s) failed/pending dans "{fileName}"
-                {Object.values(doublons).filter(d => d.existe).length > 0 && (
-                  <span style={{ marginLeft: 12, color: 'var(--red)', fontWeight: 700 }}>
-                     {Object.values(doublons).filter(d => d.existe).length} déjà dans la base
-                  </span>
+                {verificationComplete && (
+                  <>
+                    {nbNouveaux > 0 && (
+                      <span style={{ marginLeft: 12, color: 'var(--green)', fontWeight: 700 }}>
+                        · {nbNouveaux} nouveau{nbNouveaux > 1 ? 'x' : ''}
+                      </span>
+                    )}
+                    {nbDoublons > 0 && (
+                      <span style={{ marginLeft: 8, color: 'var(--red)', fontWeight: 700 }}>
+                        · {nbDoublons} déjà dans la base (ignoré{nbDoublons > 1 ? 's' : ''})
+                      </span>
+                    )}
+                  </>
                 )}
                 {verifying && (
                   <span style={{ marginLeft: 12, color: 'var(--gray-400)', fontSize: '0.78rem' }}>
@@ -526,7 +577,12 @@ function ModalImportExcel({ onClose, onSuccess }) {
                 )}
               </div>
 
-              {/* Aperçu */}
+              {allDoublons && !verifying && (
+                <div className="alert alert-error" style={{ marginTop: 10, fontWeight: 600 }}>
+                  ⛔ Tous les tickets de ce fichier sont déjà présents dans la base. Importation impossible.
+                </div>
+              )}
+
               <div style={{ marginTop: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <div className="form-section-title" style={{ margin: 0 }}>
@@ -556,7 +612,7 @@ function ModalImportExcel({ onClose, onSuccess }) {
                       </thead>
                       <tbody>
                         {ticketsAvecMatricule.map((t, i) => {
-                          const doublon = doublons[i];
+                          const doublon   = doublons[i];
                           const isDoublon = doublon?.existe;
                           return (
                             <tr key={i} style={isDoublon ? { background: 'rgba(190,56,23,0.06)' } : {}}>
@@ -584,7 +640,7 @@ function ModalImportExcel({ onClose, onSuccess }) {
                                     background: 'rgba(190,56,23,0.1)', color: 'var(--red)',
                                     border: '1px solid rgba(190,56,23,0.3)', whiteSpace: 'nowrap',
                                   }}>
-                                     {doublon.existeVendu ? 'Déjà vendu' : 'Déjà en anomalie'}
+                                    {doublon.existeVendu ? 'Déjà vendu' : 'Déjà en anomalie'}
                                   </span>
                                 ) : doublon ? (
                                   <span style={{
@@ -627,11 +683,17 @@ function ModalImportExcel({ onClose, onSuccess }) {
           <button
             className="btn"
             onClick={handleImport}
-            disabled={loading || !tickets.length || !matriculeManuel}
+            disabled={loading || !tickets.length || allDoublons}
+            title={allDoublons ? 'Tous les tickets sont déjà dans la base — importation impossible' : ''}
+            style={allDoublons ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
           >
             {loading
               ? 'Importation...'
-              : ` Importer ${tickets.length > 0 ? `(${tickets.length} ticket${tickets.length > 1 ? 's' : ''})` : ''}`}
+              : allDoublons
+              ? '⛔ Déjà importés'
+              : verificationComplete && nbNouveaux < tickets.length
+              ? `Importer ${nbNouveaux} nouveau${nbNouveaux > 1 ? 'x' : ''} (${nbDoublons} ignoré${nbDoublons > 1 ? 's' : ''})`
+              : `Importer ${tickets.length > 0 ? `(${tickets.length} ticket${tickets.length > 1 ? 's' : ''})` : ''}`}
           </button>
         </div>
       </div>
@@ -658,8 +720,9 @@ export default function GestionAnomalies() {
     try {
       const res = await axios.get(`${API}/anomalies`);
       setAnomalies(res.data.anomalies || []);
-    } catch {
-      setMessage({ text: 'Erreur de connexion au serveur.', type: 'error' });
+    } catch (err) {
+      console.error('❌ fetchAnomalies error:', err.response?.status, err.response?.data, err.message);
+      setMessage({ text: extractAxiosError(err), type: 'error' });
     }
     setLoading(false);
   }, []);
@@ -673,14 +736,20 @@ export default function GestionAnomalies() {
       if (res.data.success) {
         setMessage({ text: 'Anomalie ignorée.', type: 'success' });
         fetchAnomalies();
+      } else {
+        setMessage({ text: res.data.message || 'Erreur lors de la mise à jour.', type: 'error' });
       }
-    } catch { setMessage({ text: 'Erreur de connexion.', type: 'error' }); }
+    } catch (err) {
+      console.error('❌ Ignorer error:', err.response?.status, err.response?.data, err.message);
+      setMessage({ text: extractAxiosError(err), type: 'error' });
+    }
   };
 
-  // ── Filtrage ──────────────────────────────────────────────────────────────
   const filtered = anomalies.filter(a => {
     const q = search.toLowerCase();
-    const matchStatut = !filterStatut || a.statut === filterStatut;
+    const matchStatut = filterStatut
+      ? a.statut === filterStatut
+      : a.statut !== 'enregistre';
     const matchSearch = !q ||
       String(a.matricule_agent).includes(q) ||
       (a.nom    || '').toLowerCase().includes(q) ||
@@ -694,7 +763,6 @@ export default function GestionAnomalies() {
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
   const paginated  = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  // ── KPIs ──────────────────────────────────────────────────────────────────
   const nbNonTraite  = anomalies.filter(a => a.statut === 'non_traite').length;
   const nbEnregistre = anomalies.filter(a => a.statut === 'enregistre').length;
   const nbIgnore     = anomalies.filter(a => a.statut === 'ignore').length;
@@ -702,7 +770,6 @@ export default function GestionAnomalies() {
     .filter(a => a.statut === 'non_traite')
     .reduce((s, a) => s + Number(a.montant_total || 0), 0);
 
-  // ── Export ────────────────────────────────────────────────────────────────
   const handleExport = () => {
     const ws = XLSX.utils.aoa_to_sheet([
       ['#', 'Agent', 'Matricule', 'Voyage', 'Départ', 'Arrivée', 'Tarif', 'Qté', 'Prix unit. (ms)', 'Montant (ms)', 'Date', 'Erreur', 'Statut'],
@@ -737,8 +804,11 @@ export default function GestionAnomalies() {
           onClose={() => setModalCorrect(null)}
           onSuccess={() => {
             setMessage({ text: 'Ticket enregistré dans la base avec succès !', type: 'success' });
-            fetchAnomalies();
+            setAnomalies(prev => prev.map(a =>
+              a.id === modalCorrect.id ? { ...a, statut: 'enregistre' } : a
+            ));
             setModalCorrect(null);
+            fetchAnomalies();
           }}
         />
       )}
@@ -753,7 +823,6 @@ export default function GestionAnomalies() {
         />
       )}
 
-      {/* ── Header ── */}
       <div className="breadcrumb">SRTB › Contrôleur › <span>Gestion des anomalies</span></div>
       <div className="page-header">
         <div>
@@ -770,11 +839,9 @@ export default function GestionAnomalies() {
         </div>
       </div>
 
-      {/* ── KPIs ── */}
       <div className="kpi-controleur-grid">
         <div className="kpi-controleur-card red" style={{ cursor: 'pointer' }}
           onClick={() => setFilterStatut('non_traite')}>
-          
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{nbNonTraite}</div>
             <div className="kpi-ctrl-label">Non traités</div>
@@ -782,7 +849,6 @@ export default function GestionAnomalies() {
         </div>
         <div className="kpi-controleur-card green" style={{ cursor: 'pointer' }}
           onClick={() => setFilterStatut('enregistre')}>
-          
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{nbEnregistre}</div>
             <div className="kpi-ctrl-label">Enregistrés</div>
@@ -790,14 +856,12 @@ export default function GestionAnomalies() {
         </div>
         <div className="kpi-controleur-card navy" style={{ cursor: 'pointer' }}
           onClick={() => setFilterStatut('ignore')}>
-          
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{nbIgnore}</div>
             <div className="kpi-ctrl-label">Ignorés</div>
           </div>
         </div>
         <div className="kpi-controleur-card gold">
-          
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value" style={{ fontSize: '1.1rem' }}>
               {(totalMs / 1000).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT
@@ -807,7 +871,6 @@ export default function GestionAnomalies() {
         </div>
       </div>
 
-      {/* ── Filtres ── */}
       <div className="card" style={{ marginBottom: 20, padding: '16px 24px' }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <input
@@ -830,10 +893,10 @@ export default function GestionAnomalies() {
                 fontSize: '0.82rem', whiteSpace: 'nowrap',
               }}
             >
-              {s === ''            ? `Tous (${anomalies.length})`
-               : s === 'non_traite'  ? ` Non traités (${nbNonTraite})`
-               : s === 'enregistre'  ? ` Enregistrés (${nbEnregistre})`
-               :                       `Ignorés (${nbIgnore})`}
+              {s === ''           ? `Tous (${nbNonTraite + nbIgnore})`
+               : s === 'non_traite' ? `Non traités (${nbNonTraite})`
+               : s === 'enregistre' ? `✅ Enregistrés (${nbEnregistre})`
+               :                      `Ignorés (${nbIgnore})`}
             </button>
           ))}
         </div>
@@ -842,7 +905,6 @@ export default function GestionAnomalies() {
         </p>
       </div>
 
-      {/* ── Tableau ── */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>
@@ -915,7 +977,7 @@ export default function GestionAnomalies() {
                                 style={{ padding: '5px 12px', fontSize: '0.78rem' }}
                                 onClick={() => setModalCorrect(a)}
                               >
-                                 Corriger
+                                Corriger
                               </button>
                               <button
                                 className="action-btn edit"
@@ -928,7 +990,7 @@ export default function GestionAnomalies() {
                           )}
                           {a.statut === 'enregistre' && (
                             <span style={{ fontSize: '0.78rem', color: 'var(--green)', fontWeight: 600 }}>
-                               Enregistré
+                              ✅ Enregistré
                             </span>
                           )}
                           {a.statut === 'ignore' && (
@@ -937,7 +999,7 @@ export default function GestionAnomalies() {
                               style={{ fontSize: '0.75rem' }}
                               onClick={() => setModalCorrect(a)}
                             >
-                               Retraiter
+                              Retraiter
                             </button>
                           )}
                         </div>

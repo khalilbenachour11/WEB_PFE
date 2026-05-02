@@ -21,6 +21,7 @@ exports.getAll = async (req, res) => {
 };
 
 // ── POST /api/anomalies/importer ──────────────────────────────────────────────
+// Only inserts tickets NOT already present in ticket_anomalie or ticket_vendu.
 exports.importer = async (req, res) => {
   const { tickets } = req.body;
   if (!tickets || !Array.isArray(tickets) || tickets.length === 0)
@@ -28,7 +29,42 @@ exports.importer = async (req, res) => {
 
   try {
     let inserted = 0;
+    let skipped  = 0;
+
     for (const t of tickets) {
+      // ── Guard: skip if already in ticket_vendu ──────────────────────────
+      const [venduRows] = await db.promise().query(`
+        SELECT id_ticket FROM billetterie.ticket_vendu
+        WHERE id_voyage       = ?
+          AND matricule_agent = ?
+          AND type_tarif      = ?
+          AND date_heure      = ?
+        LIMIT 1
+      `, [
+        t.id_voyage       || null,
+        t.matricule_agent || null,
+        t.type_tarif      || null,
+        t.date_heure      || null,
+      ]);
+      if (venduRows.length > 0) { skipped++; continue; }
+
+      // ── Guard: skip if already in ticket_anomalie ───────────────────────
+      const [anomalieRows] = await db.promise().query(`
+        SELECT id FROM billetterie.ticket_anomalie
+        WHERE id_voyage       = ?
+          AND matricule_agent = ?
+          AND type_tarif      = ?
+          AND date_heure      = ?
+        LIMIT 1
+      `, [
+        t.id_voyage       || null,
+        t.matricule_agent || null,
+        t.type_tarif      || null,
+        t.date_heure      || null,
+      ]);
+      if (anomalieRows.length > 0) { skipped++; continue; }
+
+      // ── Insert new anomalie ─────────────────────────────────────────────
       await db.promise().query(`
         INSERT INTO billetterie.ticket_anomalie
           (matricule_agent, id_voyage, id_segment, point_depart, point_arrivee,
@@ -49,14 +85,21 @@ exports.importer = async (req, res) => {
       ]);
       inserted++;
     }
-    res.json({ success: true, inserted });
+
+    res.json({
+      success: true,
+      inserted,
+      skipped,
+      message: skipped > 0
+        ? `${inserted} importé(s), ${skipped} doublon(s) ignoré(s).`
+        : `${inserted} ticket(s) importé(s) avec succès.`,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// ── POST /api/anomalies/verifier ─────────────────────────────────────────────
-// Vérifie si des tickets (id_voyage + matricule + date_heure) existent déjà
+// ── POST /api/anomalies/verifier ──────────────────────────────────────────────
 exports.verifier = async (req, res) => {
   const { tickets } = req.body;
   if (!tickets || !Array.isArray(tickets) || tickets.length === 0)
@@ -65,13 +108,13 @@ exports.verifier = async (req, res) => {
   try {
     const results = [];
     for (const t of tickets) {
-      // Chercher un doublon dans ticket_vendu ET ticket_anomalie
+
       const [venduRows] = await db.promise().query(`
         SELECT id_ticket FROM billetterie.ticket_vendu
-        WHERE id_voyage = ?
+        WHERE id_voyage       = ?
           AND matricule_agent = ?
-          AND type_tarif = ?
-          AND date_heure = ?
+          AND type_tarif      = ?
+          AND date_heure      = ?
         LIMIT 1
       `, [
         t.id_voyage       || null,
@@ -80,23 +123,28 @@ exports.verifier = async (req, res) => {
         t.date_heure      || null,
       ]);
 
+      const excludeId = t.exclude_id ? parseInt(t.exclude_id) : null;
+
       const [anomalieRows] = await db.promise().query(`
         SELECT id FROM billetterie.ticket_anomalie
-        WHERE id_voyage = ?
+        WHERE id_voyage       = ?
           AND matricule_agent = ?
-          AND type_tarif = ?
-          AND date_heure = ?
+          AND type_tarif      = ?
+          AND date_heure      = ?
+          AND (? IS NULL OR id != ?)
         LIMIT 1
       `, [
         t.id_voyage       || null,
         t.matricule_agent || null,
         t.type_tarif      || null,
         t.date_heure      || null,
+        excludeId,
+        excludeId,
       ]);
 
       results.push({
         index:          t._index,
-        existeVendu:    venduRows.length  > 0,
+        existeVendu:    venduRows.length    > 0,
         existeAnomalie: anomalieRows.length > 0,
         existe:         venduRows.length > 0 || anomalieRows.length > 0,
       });
@@ -116,15 +164,12 @@ exports.enregistrer = async (req, res) => {
     date_heure, matricule_agent,
   } = req.body;
 
-
-
   try {
-    // ── 1. Vérifier que le voyage existe dans billetterie.voyage ────────────
+    // ── 1. Vérifier que le voyage existe ──────────────────────────────────────
     const [voyageRows] = await db.promise().query(
       'SELECT id_voyage FROM billetterie.voyage WHERE id_voyage = ?',
       [id_voyage]
     );
-
     if (!voyageRows.length) {
       return res.status(400).json({
         success: false,
@@ -132,8 +177,7 @@ exports.enregistrer = async (req, res) => {
       });
     }
 
-    // ── 2. Récupérer un id_segment valide pour ce voyage ────────────────────
-    // id_segment est NOT NULL dans ticket_vendu — on prend le premier segment du voyage
+    // ── 2. Récupérer un id_segment valide pour ce voyage ─────────────────────
     const [segRows] = await db.promise().query(
       'SELECT id_segment FROM billetterie.segment_voyage WHERE id_voyage = ? ORDER BY id_segment LIMIT 1',
       [id_voyage]
@@ -146,9 +190,31 @@ exports.enregistrer = async (req, res) => {
     }
     const id_segment = segRows[0].id_segment;
 
+    // ── 3. Vérifier doublon dans ticket_vendu ─────────────────────────────────
+    const [existingVendu] = await db.promise().query(`
+      SELECT id_ticket FROM billetterie.ticket_vendu
+      WHERE id_voyage       = ?
+        AND matricule_agent = ?
+        AND type_tarif      = ?
+        AND date_heure      = ?
+      LIMIT 1
+    `, [
+      parseInt(id_voyage),
+      matricule_agent ? parseInt(matricule_agent) : null,
+      type_tarif      || null,
+      date_heure      || null,
+    ]);
+
+    if (existingVendu.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Ce ticket existe déjà dans la base (ticket_vendu #${existingVendu[0].id_ticket}). Enregistrement annulé pour éviter un doublon.`,
+      });
+    }
+
     await db.promise().query('START TRANSACTION');
 
-    // ── 3. Insérer dans ticket_vendu ─────────────────────────────────────────
+    // ── 4. Insérer dans ticket_vendu ──────────────────────────────────────────
     await db.promise().query(`
       INSERT INTO billetterie.ticket_vendu
         (id_voyage, id_segment, point_depart, point_arrivee,
@@ -158,17 +224,17 @@ exports.enregistrer = async (req, res) => {
     `, [
       parseInt(id_voyage),
       id_segment,
-      point_depart   || null,
-      point_arrivee  || null,
-      type_tarif     || null,
+      point_depart    || null,
+      point_arrivee   || null,
+      type_tarif      || null,
       parseInt(quantite)      || 1,
       parseInt(prix_unitaire) || 0,
       parseInt(montant_total) || 0,
-      date_heure     || null,
+      date_heure      || null,
       matricule_agent ? parseInt(matricule_agent) : null,
     ]);
 
-    // ── 3. Mettre à jour statut anomalie ─────────────────────────────────────
+    // ── 5. Passer le statut de l'anomalie à "enregistre" ─────────────────────
     await db.promise().query(`
       UPDATE billetterie.ticket_anomalie
       SET statut = 'enregistre', updated_at = NOW()

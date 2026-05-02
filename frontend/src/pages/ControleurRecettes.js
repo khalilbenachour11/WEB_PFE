@@ -17,53 +17,97 @@ const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
 const fmtDT = (ms) => {
   const val = Number(ms || 0);
   if (!isFinite(val) || isNaN(val)) return "— DT";
-  return (val / 1000).toLocaleString("fr-FR", {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
-  }) + " DT";
+  return (
+    (val / 1000).toLocaleString("fr-FR", {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    }) + " DT"
+  );
 };
 
-const fmtDate = (d) =>
-  d
-    ? new Date(d).toLocaleDateString("fr-FR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    : "—";
+// Découpe "YYYY-MM-DD" directement pour éviter le décalage UTC
+const fmtDate = (d) => {
+  if (!d) return "—";
+  const str = typeof d === "string" ? d : d instanceof Date ? d.toISOString() : String(d);
+  const [y, m, day] = str.split("T")[0].split("-");
+  if (y && m && day) return `${day}/${m}/${y}`;
+  return "—";
+};
 
-const fmtTime = (d) =>
-  d
-    ? new Date(d).toLocaleTimeString("fr-FR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "—";
+// Interprétation locale (Tunis) pour les datetime
+const fmtTime = (d) => {
+  if (!d) return "—";
+  const local = typeof d === "string" ? d.replace("T", " ").replace("Z", "") : d;
+  const dt = new Date(local);
+  if (isNaN(dt)) return "—";
+  return dt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+};
 
-// ✅ Fix décalage UTC : ne passe pas par toISOString()
-const formatDateForAPI = (dateStr) => String(dateStr).split("T")[0];
+// Normalise en "YYYY-MM-DD" sans décalage UTC
+const normalizeDate = (raw) => {
+  if (!raw) return "";
+  if (typeof raw === "string") return raw.split("T")[0];
+  if (raw instanceof Date) return raw.toISOString().split("T")[0];
+  return String(raw).split("T")[0];
+};
+
+// Construit les params API cohérents avec la ligne du tableau
+const buildParams = (journee) => {
+  const params = {
+    matricule_agent: journee.matricule_agent,
+    date: normalizeDate(journee.date),
+  };
+  if (journee.voyage_ids?.length > 0) {
+    params.voyage_ids = journee.voyage_ids.join(",");
+  } else if (journee.id_ligne) {
+    params.id_ligne = journee.id_ligne;
+  }
+  return params;
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HOOK GÉNÉRIQUE FETCH MODAL
+// ══════════════════════════════════════════════════════════════════════════════
+
+function useModalData(url, journee) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [erreur, setErreur]   = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErreur("");
+    setData(null);
+
+    axios
+      .get(url, { params: buildParams(journee) })
+      .then((r) => {
+        if (cancelled) return;
+        if (r.data.success) setData(r.data);
+        else setErreur(r.data.message || "Erreur serveur");
+      })
+      .catch((e) => {
+        if (!cancelled) setErreur(e.message || "Erreur de connexion");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [url, journee]);
+
+  return { data, loading, erreur };
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODAL TRANSACTIONS
 // ══════════════════════════════════════════════════════════════════════════════
 
 function ModalTransactions({ journee, onClose }) {
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, erreur } = useModalData(`${API}/controleur/tickets`, journee);
+  const tickets = data?.tickets || [];
   const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    axios
-      .get(`${API}/controleur/tickets`, {
-        params: {
-          matricule_agent: journee.matricule_agent,
-          date: formatDateForAPI(journee.date),
-        },
-      })
-      .then((r) => setTickets(r.data.tickets || []))
-      .catch(() => setTickets([]))
-      .finally(() => setLoading(false));
-  }, [journee]);
 
   const filtered = tickets.filter((t) => {
     const q = search.toLowerCase();
@@ -75,29 +119,23 @@ function ModalTransactions({ journee, onClose }) {
     );
   });
 
-  const totalPayant = filtered.reduce(
-    (s, t) => s + (Number(t.montant_total) || 0),
-    0
-  );
-  const nbGratuits = filtered.filter((t) => Number(t.montant_total) === 0).length;
+  const totalPayant = filtered.reduce((s, t) => s + (Number(t.montant_total) || 0), 0);
+  const totalQte    = filtered.reduce((s, t) => s + (Number(t.quantite) || 0), 0);
+  const qtePayants  = filtered.reduce((s, t) => Number(t.montant_total) > 0 ? s + Number(t.quantite || 0) : s, 0);
+  const qteGratuits = filtered.reduce((s, t) => Number(t.montant_total) === 0 ? s + Number(t.quantite || 0) : s, 0);
 
   const handleExport = () => {
     const ws = XLSX.utils.aoa_to_sheet([
       ["#", "Heure", "Voyage", "Départ", "Arrivée", "Tarif", "Qté", "Total (ms)"],
       ...tickets.map((t, i) => [
-        i + 1,
-        fmtTime(t.date_heure),
-        `#${t.id_voyage}`,
-        t.point_depart || "—",
-        t.point_arrivee || "—",
-        t.type_tarif || "—",
-        t.quantite || 0,
-        t.montant_total || 0,
+        i + 1, fmtTime(t.date_heure), `#${t.id_voyage}`,
+        t.point_depart || "—", t.point_arrivee || "—",
+        t.type_tarif || "—", t.quantite || 0, t.montant_total || 0,
       ]),
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Transactions");
-    XLSX.writeFile(wb, `transactions_${journee.matricule_agent}_${formatDateForAPI(journee.date)}.xlsx`);
+    XLSX.writeFile(wb, `transactions_${journee.matricule_agent}_${normalizeDate(journee.date)}.xlsx`);
   };
 
   return (
@@ -107,41 +145,48 @@ function ModalTransactions({ journee, onClose }) {
         style={{ maxWidth: 860, width: "96vw", maxHeight: "90vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="modal-header">
           <div>
             <h2 className="modal-title">
-               Transactions — {journee.prenom} {journee.nom}
+              Transactions — {journee.prenom} {journee.nom}
             </h2>
             <div style={{ fontSize: "0.78rem", color: "var(--gray-400)", marginTop: 2 }}>
               {fmtDate(journee.date)} · {journee.nom_ligne || `Ligne #${journee.id_ligne}`}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button className="btn btn-gold" style={{ fontSize: "0.82rem", padding: "8px 16px" }} onClick={handleExport}>
+            <button
+              className="btn btn-gold"
+              style={{ fontSize: "0.82rem", padding: "8px 16px" }}
+              onClick={handleExport}
+              disabled={tickets.length === 0}
+            >
               ⬇ Exporter
             </button>
             <button className="modal-close" onClick={onClose}>✕</button>
           </div>
         </div>
 
-        {/* KPIs mini */}
-        <div className="ctrl-modal-kpi">
+        {/* KPIs */}
+        <div className="ctrl-modal-kpi" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
           <div className="ctrl-modal-kpi-item">
-            <div className="ctrl-modal-kpi-label">Transactions</div>
-            <div className="ctrl-modal-kpi-value">{filtered.length}</div>
+            <div className="ctrl-modal-kpi-label">Passagers (total)</div>
+            <div className="ctrl-modal-kpi-value">{totalQte}</div>
+          </div>
+          <div className="ctrl-modal-kpi-item">
+            <div className="ctrl-modal-kpi-label">Payants</div>
+            <div className="ctrl-modal-kpi-value">{qtePayants}</div>
+          </div>
+          <div className="ctrl-modal-kpi-item">
+            <div className="ctrl-modal-kpi-label">Gratuits</div>
+            <div className="ctrl-modal-kpi-value gold">{qteGratuits}</div>
           </div>
           <div className="ctrl-modal-kpi-item">
             <div className="ctrl-modal-kpi-label">Recette</div>
             <div className="ctrl-modal-kpi-value green">{fmt(totalPayant)} ms</div>
           </div>
-          <div className="ctrl-modal-kpi-item">
-            <div className="ctrl-modal-kpi-label">Gratuits</div>
-            <div className="ctrl-modal-kpi-value gold">{nbGratuits}</div>
-          </div>
         </div>
 
-        {/* Recherche */}
         <div style={{ padding: "12px 28px" }}>
           <input
             className="search-input"
@@ -152,23 +197,21 @@ function ModalTransactions({ journee, onClose }) {
           />
         </div>
 
-        {/* Tableau */}
         <div style={{ padding: "0 28px 20px", overflowX: "auto" }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: 40, color: "var(--gray-400)" }}>Chargement...</div>
+          ) : erreur ? (
+            <div className="alert alert-error">⚠ {erreur}</div>
           ) : filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 40, color: "var(--gray-400)" }}>Aucune transaction trouvée</div>
+            <div style={{ textAlign: "center", padding: 40, color: "var(--gray-400)" }}>
+              Aucune transaction trouvée pour cette journée / ligne
+            </div>
           ) : (
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Heure</th>
-                  <th>Voyage</th>
-                  <th>Départ → Arrivée</th>
-                  <th>Tarif</th>
-                  <th>Qté</th>
-                  <th>Total</th>
+                  <th>#</th><th>Heure</th><th>Voyage</th>
+                  <th>Départ → Arrivée</th><th>Tarif</th><th>Qté</th><th>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -191,10 +234,11 @@ function ModalTransactions({ journee, onClose }) {
                       </td>
                       <td style={{ textAlign: "center" }}>{t.quantite}</td>
                       <td>
-                        {isGratuit
-                          ? <span style={{ color: "var(--green)", fontWeight: 600, fontSize: "0.82rem" }}>Gratuit</span>
-                          : <span className="montant-badge">{fmt(t.montant_total)} ms</span>
-                        }
+                        {isGratuit ? (
+                          <span style={{ color: "var(--green)", fontWeight: 600, fontSize: "0.82rem" }}>Gratuit</span>
+                        ) : (
+                          <span className="montant-badge">{fmt(t.montant_total)} ms</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -202,13 +246,12 @@ function ModalTransactions({ journee, onClose }) {
               </tbody>
               <tfoot>
                 <tr style={{ background: "var(--navy)" }}>
-                  <td colSpan={4} style={{ color: "var(--gold)", fontWeight: 700, fontSize: "0.78rem", padding: "10px 18px", letterSpacing: "1px", textTransform: "uppercase" }}>
+                  <td colSpan={5} style={{ color: "var(--gold)", fontWeight: 700, fontSize: "0.78rem", padding: "10px 18px", letterSpacing: "1px", textTransform: "uppercase" }}>
                     Total
                   </td>
                   <td style={{ color: "#fff", fontWeight: 700, textAlign: "center", padding: "10px 18px" }}>
-                    {filtered.reduce((s, t) => s + t.quantite, 0)}
+                    {totalQte}
                   </td>
-                  <td style={{ padding: "10px 18px" }} />
                   <td style={{ padding: "10px 18px" }}>
                     <span style={{ background: "var(--gold)", color: "var(--navy-dark)", padding: "3px 12px", borderRadius: 20, fontWeight: 700, fontSize: "0.88rem" }}>
                       {fmt(totalPayant)} ms
@@ -229,45 +272,39 @@ function ModalTransactions({ journee, onClose }) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function ModalRapportDetail({ journee, onClose }) {
-  const [rapport, setRapport] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    axios
-      .get(`${API}/controleur/rapport_detail`, {
-        params: {
-          matricule_agent: journee.matricule_agent,
-          date: formatDateForAPI(journee.date),
-        },
-      })
-      .then((r) => setRapport(r.data))
-      .catch(() => setRapport(null))
-      .finally(() => setLoading(false));
-  }, [journee]);
+  const { data: rapport, loading, erreur } = useModalData(`${API}/controleur/rapport_detail`, journee);
 
   if (loading) {
     return (
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-box" style={{ maxWidth: 420 }}>
-          <div style={{ textAlign: "center", padding: 40, color: "var(--gray-400)" }}>
-            Chargement du rapport...
-          </div>
+          <div style={{ textAlign: "center", padding: 40, color: "var(--gray-400)" }}>Chargement du rapport...</div>
         </div>
       </div>
     );
   }
 
+  if (erreur) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-box" style={{ maxWidth: 420 }}>
+          <div className="alert alert-error">⚠ {erreur}</div>
+          <div className="modal-actions"><button className="btn btn-gray" onClick={onClose}>Fermer</button></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback sur les données de la ligne du tableau si le rapport est vide
   const r = rapport || {
-    total_ms: journee.recette_ms || 0,
-    nb_tickets: journee.nb_tickets || 0,
-    nb_payants: journee.nb_payants || 0,
-    nb_gratuits: journee.nb_gratuits || 0,
-    tickets: [],
-    par_tarif: [],
-    par_voyage: [],
+    total_ms:   journee.recette_ms  || 0,
+    nb_tickets: journee.nb_tickets  || 0,
+    nb_payants: journee.nb_payants  || 0,
+    nb_gratuits:journee.nb_gratuits || 0,
+    tickets: [], par_tarif: [], par_voyage: [],
   };
 
-  const tauxGrat = r.nb_tickets > 0
+  const tauxGrat  = r.nb_tickets > 0
     ? (((r.nb_gratuits || 0) / r.nb_tickets) * 100).toFixed(1)
     : "0.0";
   const prixMoyen = r.nb_payants > 0
@@ -276,20 +313,23 @@ function ModalRapportDetail({ journee, onClose }) {
 
   const handleExport = () => {
     const wb = XLSX.utils.book_new();
+
     const ws1 = XLSX.utils.aoa_to_sheet([
       [`RAPPORT — ${fmtDate(journee.date)}`],
       [`Agent : ${journee.prenom} ${journee.nom}`],
+      [`Ligne : ${journee.nom_ligne || journee.id_ligne}`],
       [],
-      ["Indicateur", "Valeur"],
+      ["Indicateur",         "Valeur"],
       ["Recette totale (ms)", Number(r.total_ms)],
       ["Recette totale (DT)", fmtDT(r.total_ms)],
-      ["Total tickets", r.nb_tickets],
-      ["Payants", r.nb_payants],
-      ["Gratuits", r.nb_gratuits],
-      ["Prix moyen (ms)", prixMoyen],
-      ["Taux gratuité (%)", tauxGrat],
+      ["Total tickets",       r.nb_tickets],
+      ["Payants",             r.nb_payants],
+      ["Gratuits",            r.nb_gratuits],
+      ["Prix moyen (ms)",     prixMoyen],
+      ["Taux gratuité (%)",   tauxGrat],
     ]);
     XLSX.utils.book_append_sheet(wb, ws1, "Résumé");
+
     if (r.par_tarif?.length > 0) {
       const ws2 = XLSX.utils.aoa_to_sheet([
         ["Type", "Quantité", "Total (ms)"],
@@ -297,6 +337,7 @@ function ModalRapportDetail({ journee, onClose }) {
       ]);
       XLSX.utils.book_append_sheet(wb, ws2, "Par tarif");
     }
+
     if (r.par_voyage?.length > 0) {
       const ws3 = XLSX.utils.aoa_to_sheet([
         ["Voyage", "Type", "Ligne", "Tickets", "Recette (ms)"],
@@ -304,7 +345,8 @@ function ModalRapportDetail({ journee, onClose }) {
       ]);
       XLSX.utils.book_append_sheet(wb, ws3, "Par voyage");
     }
-    XLSX.writeFile(wb, `rapport_${journee.matricule_agent}_${formatDateForAPI(journee.date)}.xlsx`);
+
+    XLSX.writeFile(wb, `rapport_${journee.matricule_agent}_${normalizeDate(journee.date)}.xlsx`);
   };
 
   return (
@@ -314,14 +356,11 @@ function ModalRapportDetail({ journee, onClose }) {
         style={{ maxWidth: 860, width: "96vw", maxHeight: "92vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">
-              📊 Rapport journée — {journee.prenom} {journee.nom}
-            </h2>
+            <h2 className="modal-title">📊 Rapport journée — {journee.prenom} {journee.nom}</h2>
             <div style={{ fontSize: "0.78rem", color: "var(--gray-400)", marginTop: 2 }}>
-              {fmtDate(journee.date)} · Matricule {journee.matricule_agent}
+              {fmtDate(journee.date)} · {journee.nom_ligne || `Ligne #${journee.id_ligne}`} · Matricule {journee.matricule_agent}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -333,8 +372,6 @@ function ModalRapportDetail({ journee, onClose }) {
         </div>
 
         <div style={{ padding: "20px 28px" }}>
-
-          {/* KPI résumé */}
           <div className="form-section-title" style={{ marginBottom: 14 }}>Résumé de la journée</div>
           <div className="ctrl-rapport-kpi-grid">
             <div className="ctrl-rapport-kpi-item green">
@@ -343,7 +380,6 @@ function ModalRapportDetail({ journee, onClose }) {
               <div className="ctrl-rk-sub">{fmt(r.total_ms)} ms</div>
             </div>
             <div className="ctrl-rapport-kpi-item navy">
-              
               <div className="ctrl-rk-label">Tickets vendus</div>
               <div className="ctrl-rk-value">{r.nb_tickets}</div>
               <div className="ctrl-rk-sub">{r.nb_payants} payants · {r.nb_gratuits} gratuits</div>
@@ -356,18 +392,13 @@ function ModalRapportDetail({ journee, onClose }) {
             </div>
           </div>
 
-          {/* Par tarif */}
           {r.par_tarif?.length > 0 && (
             <>
               <div className="form-section-title" style={{ marginBottom: 12 }}>Répartition par type de tarif</div>
               <table className="data-table" style={{ marginBottom: 24 }}>
                 <thead>
                   <tr>
-                    <th>Type de tarif</th>
-                    <th>Quantité</th>
-                    <th>Total (ms)</th>
-                    <th>Total (DT)</th>
-                    <th>% du total</th>
+                    <th>Type de tarif</th><th>Quantité</th><th>Total (ms)</th><th>Total (DT)</th><th>% du total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -401,20 +432,14 @@ function ModalRapportDetail({ journee, onClose }) {
             </>
           )}
 
-          {/* Par voyage */}
           {r.par_voyage?.length > 0 && (
             <>
               <div className="form-section-title" style={{ marginBottom: 12 }}>Répartition par voyage</div>
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Voyage</th>
-                    <th>Type</th>
-                    <th>Ligne</th>
-                    <th>Tickets</th>
-                    <th>Gratuits</th>
-                    <th>Payants</th>
-                    <th>Recette</th>
+                    <th>Voyage</th><th>Type</th><th>Ligne</th><th>Tickets</th>
+                    <th>Gratuits</th><th>Payants</th><th>Recette</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -443,7 +468,12 @@ function ModalRapportDetail({ journee, onClose }) {
             </>
           )}
 
-          {/* Anomalie sync */}
+          {r.nb_tickets === 0 && (
+            <div style={{ textAlign: "center", padding: "32px 0", color: "var(--gray-400)", fontSize: "0.9rem" }}>
+              Aucune transaction enregistrée pour cette journée / ligne
+            </div>
+          )}
+
           {journee.sync_failed > 0 && (
             <div className="ctrl-anomalie-banner">
               <span className="icon">⚠️</span>
@@ -451,7 +481,6 @@ function ModalRapportDetail({ journee, onClose }) {
                 <div className="ctrl-anomalie-title">Anomalie de synchronisation détectée</div>
                 <div className="ctrl-anomalie-desc">
                   {journee.sync_failed} ticket(s) n'ont pas été synchronisés correctement depuis l'application mobile.
-                  La recette affichée peut être incomplète.
                 </div>
               </div>
             </div>
@@ -467,30 +496,41 @@ function ModalRapportDetail({ journee, onClose }) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export default function ControleurRecettes() {
-  const [journees, setJournees] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState({ text: "", type: "" });
-
-  const [dateDebut, setDateDebut] = useState(() => {
+  const today   = new Date().toISOString().split("T")[0];
+  const weekAgo = (() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
     return d.toISOString().split("T")[0];
-  });
-  const [dateFin, setDateFin] = useState(() => new Date().toISOString().split("T")[0]);
+  })();
 
+  const [journees, setJournees]             = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [message, setMessage]               = useState({ text: "", type: "" });
+  const [dateDebut, setDateDebut]           = useState(weekAgo);
+  const [dateFin, setDateFin]               = useState(today);
   const [searchReceveur, setSearchReceveur] = useState("");
-  const [filterLigne, setFilterLigne] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [modalTransac, setModalTransac] = useState(null);
-  const [modalDetail, setModalDetail] = useState(null);
+  const [filterLigne, setFilterLigne]       = useState("");
+  const [currentPage, setCurrentPage]       = useState(1);
+  const [modalTransac, setModalTransac]     = useState(null);
+  const [modalDetail, setModalDetail]       = useState(null);
 
+  // ── Fetch journées ──────────────────────────────────────────────────────────
   const fetchJournees = useCallback(async () => {
     setLoading(true);
     try {
       const res = await axios.get(`${API}/controleur/journees`, {
         params: { debut: dateDebut, fin: dateFin },
       });
-      setJournees(res.data.journees || []);
+      const normalized = (res.data.journees || []).map((j) => ({
+        ...j,
+        date: normalizeDate(j.date),
+        voyage_ids: Array.isArray(j.voyage_ids)
+          ? j.voyage_ids
+          : j.voyage_ids
+            ? String(j.voyage_ids).split(",").map(Number)
+            : [],
+      }));
+      setJournees(normalized);
     } catch {
       setMessage({ text: "Erreur de connexion au serveur", type: "error" });
       setJournees([]);
@@ -501,6 +541,7 @@ export default function ControleurRecettes() {
   useEffect(() => { fetchJournees(); }, [fetchJournees]);
   useEffect(() => { setCurrentPage(1); }, [searchReceveur, filterLigne, dateDebut, dateFin]);
 
+  // ── Filtres client ──────────────────────────────────────────────────────────
   const lignesUniques = [...new Set(journees.map((j) => j.nom_ligne).filter(Boolean))].sort();
 
   const filtered = journees.filter((j) => {
@@ -513,17 +554,14 @@ export default function ControleurRecettes() {
     return matchReceveur && matchLigne;
   });
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
-  const paginated = filtered.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
+  const totalPages    = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
+  const paginated     = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   const totalRecette  = filtered.reduce((s, j) => s + Number(j.recette_ms  || 0), 0);
   const totalTickets  = filtered.reduce((s, j) => s + Number(j.nb_tickets  || 0), 0);
   const totalPayants  = filtered.reduce((s, j) => s + Number(j.nb_payants  || 0), 0);
   const totalGratuits = filtered.reduce((s, j) => s + Number(j.nb_gratuits || 0), 0);
 
+  // ── Export global ───────────────────────────────────────────────────────────
   const handleExportGlobal = () => {
     const ws = XLSX.utils.aoa_to_sheet([
       ["Date", "Ligne", "Matricule", "Receveur", "Début", "Fin",
@@ -535,8 +573,8 @@ export default function ControleurRecettes() {
         `${j.prenom} ${j.nom}`,
         fmtTime(j.debut_service),
         fmtTime(j.fin_service),
-        j.nb_tickets || 0,
-        j.nb_payants || 0,
+        j.nb_tickets  || 0,
+        j.nb_payants  || 0,
         j.nb_gratuits || 0,
         Number(j.recette_ms) || 0,
         fmtDT(j.recette_ms),
@@ -547,47 +585,49 @@ export default function ControleurRecettes() {
     XLSX.writeFile(wb, `recettes_${dateDebut}_${dateFin}.xlsx`);
   };
 
+  // ── Rendu ───────────────────────────────────────────────────────────────────
   return (
     <div>
       <Notification message={message} onDone={() => setMessage({ text: "", type: "" })} />
 
+      {/* Les modals reçoivent la journée exacte (avec voyage_ids) cliquée dans le tableau */}
       {modalTransac && (
-        <ModalTransactions journee={modalTransac} onClose={() => setModalTransac(null)} />
+        <ModalTransactions
+          journee={modalTransac}
+          onClose={() => setModalTransac(null)}
+        />
       )}
       {modalDetail && (
-        <ModalRapportDetail journee={modalDetail} onClose={() => setModalDetail(null)} />
+        <ModalRapportDetail
+          journee={modalDetail}
+          onClose={() => setModalDetail(null)}
+        />
       )}
 
-      {/* Header */}
       <div className="breadcrumb">SRTB › Contrôleur › <span>Contrôle des recettes</span></div>
       <div className="page-header">
         <div>
           <div className="page-title">Contrôle des recettes</div>
           <div className="page-subtitle">Vérification et validation des journées par receveur</div>
         </div>
-        <button className="btn btn-gold" onClick={handleExportGlobal}>
-          ⬇ Exporter rapport global
-        </button>
+        <button className="btn btn-gold" onClick={handleExportGlobal}>⬇ Exporter rapport global</button>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs globaux (filtrés) */}
       <div className="kpi-controleur-grid">
         <div className="kpi-controleur-card green">
-          
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{fmtDT(totalRecette)}</div>
             <div className="kpi-ctrl-label">Recette totale</div>
           </div>
         </div>
         <div className="kpi-controleur-card navy">
-          
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{fmt(totalTickets)}</div>
             <div className="kpi-ctrl-label">Total tickets</div>
           </div>
         </div>
         <div className="kpi-controleur-card navy">
-          
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{fmt(totalPayants)}</div>
             <div className="kpi-ctrl-label">Tickets payants</div>
@@ -617,18 +657,29 @@ export default function ControleurRecettes() {
           </div>
           <div>
             <label className="form-label">Date début</label>
-            <input type="date" className="form-input" value={dateDebut}
-              onChange={(e) => setDateDebut(e.target.value)} />
+            <input
+              type="date"
+              className="form-input"
+              value={dateDebut}
+              onChange={(e) => setDateDebut(e.target.value)}
+            />
           </div>
           <div>
             <label className="form-label">Date fin</label>
-            <input type="date" className="form-input" value={dateFin}
-              onChange={(e) => setDateFin(e.target.value)} />
+            <input
+              type="date"
+              className="form-input"
+              value={dateFin}
+              onChange={(e) => setDateFin(e.target.value)}
+            />
           </div>
           <div>
             <label className="form-label">Ligne</label>
-            <select className="form-input" value={filterLigne}
-              onChange={(e) => setFilterLigne(e.target.value)}>
+            <select
+              className="form-input"
+              value={filterLigne}
+              onChange={(e) => setFilterLigne(e.target.value)}
+            >
               <option value="">Toutes les lignes</option>
               {lignesUniques.map((l) => (
                 <option key={l} value={l}>{l}</option>
@@ -663,16 +714,9 @@ export default function ControleurRecettes() {
               <table className="data-table" style={{ margin: 0 }}>
                 <thead>
                   <tr>
-                    <th>Date</th>
-                    <th>Ligne</th>
-                    <th>Matricule</th>
-                    <th>Receveur</th>
-                    <th>Début</th>
-                    <th>Fin</th>
-                    <th>Tickets</th>
-                    <th>Payants</th>
-                    <th>Gratuits</th>
-                    <th>Recette</th>
+                    <th>Date</th><th>Ligne</th><th>Matricule</th><th>Receveur</th>
+                    <th>Début</th><th>Fin</th><th>Tickets</th><th>Payants</th>
+                    <th>Gratuits</th><th>Recette</th>
                     <th style={{ textAlign: "center" }}>Actions</th>
                   </tr>
                 </thead>
@@ -694,6 +738,7 @@ export default function ControleurRecettes() {
                       <td><span className="montant-badge">{fmt(j.recette_ms)} ms</span></td>
                       <td>
                         <div className="ctrl-action-btns">
+                          {/* On passe l'objet journee complet (avec voyage_ids) → cohérence garantie */}
                           <button
                             className="btn-ctrl-transac"
                             onClick={() => setModalTransac(j)}
@@ -706,7 +751,7 @@ export default function ControleurRecettes() {
                             onClick={() => setModalDetail(j)}
                             title="Voir le rapport détaillé"
                           >
-                             Détail
+                            Détail
                           </button>
                         </div>
                       </td>
@@ -723,9 +768,7 @@ export default function ControleurRecettes() {
             />
 
             <div className="ctrl-table-footer">
-              {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
-              {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} sur{" "}
-              {filtered.length} journée(s)
+              {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} sur {filtered.length} journée(s)
             </div>
           </>
         )}

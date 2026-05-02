@@ -1,4 +1,3 @@
-// APRÈS
 const mysql = require('mysql2');
 require('dotenv').config();
 
@@ -8,7 +7,9 @@ const db = mysql.createPool({
   user:               process.env.DB_USER,
   password:           process.env.DB_PASSWORD,
   multipleStatements: true,
-  timezone:           process.env.DB_TIMEZONE || 'local',
+  timezone:           '+01:00',        // ← client-side Africa/Tunis
+  dateStrings:        true,            // ← CRITICAL: return DATETIME as "YYYY-MM-DD HH:MM:SS" strings
+                                       //   instead of JS Date objects, preventing any UTC conversion
   waitForConnections: true,
   connectionLimit:    10,
   queueLimit:         0,
@@ -16,12 +17,18 @@ const db = mysql.createPool({
   keepAliveInitialDelay: 0,
 });
 
+// Force server-side time_zone on every new connection so that
+// NOW() / created_at / updated_at are stored in local Tunis time.
+db.on('connection', (connection) => {
+  connection.query("SET time_zone = '+01:00'");
+});
+
 // Tester la connexion au démarrage
 db.getConnection((err, connection) => {
   if (err) {
     console.error('❌ Erreur connexion MySQL:', err);
   } else {
-    console.log('✅ MySQL connecté (pool)');
+    console.log('✅ MySQL connecté (pool) — time_zone +01:00, dateStrings ON');
     connection.release();
   }
 });
