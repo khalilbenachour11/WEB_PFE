@@ -5,26 +5,35 @@ const express = require('express');
 const cors    = require('cors');
 const app     = express();
 
+// ── CORS ──────────────────────────────────────────────────────────────────────
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim());
+
 app.use(cors({
-  origin:         process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS bloqué: ${origin}`));
+  },
   methods:        ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials:    true,
 }));
+
 app.use(express.json());
 
-// ── Routes ───────────────────────────────────────────────────────────────────
-const routes     = require('./routes/index');
+// ── Routes ────────────────────────────────────────────────────────────────────
 const syncRoutes = require('./routes/syncRoutes');
+const routes     = require('./routes/index');
 
-app.use('/api',      routes);
+// ✅ /api/sync MUST come before /api
+// Otherwise Express matches /api/sync/stream against /api first,
+// hits the global requireAuth in index.js, and returns 401
+// before syncRoutes ever sees the request.
 app.use('/api/sync', syncRoutes);
+app.use('/api',      routes);
 
 // ── Stale heartbeat sync ──────────────────────────────────────────────────────
-// Startup scan + every 30s safety net.
-// The primary trigger is now syncStream (on every frontend SSE connect),
-// so this is just a backup for agents whose anomalies arrived while
-// no frontend was connected.
-
 const { syncAllStaleHeartbeats } = require('./services/syncService');
 
 syncAllStaleHeartbeats();

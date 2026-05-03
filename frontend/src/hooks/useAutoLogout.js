@@ -1,20 +1,41 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
 export default function useAutoLogout(onLogout, timeoutMinutes = 15) {
-  const resetTimer = useCallback(() => {
-    clearTimeout(window._logoutTimer);
-    window._logoutTimer = setTimeout(() => {
-      onLogout();
-    }, timeoutMinutes * 60 * 1000);
-  }, [onLogout, timeoutMinutes]);
+  const onLogoutRef = useRef(onLogout);
 
   useEffect(() => {
-    const events = ['mousemove', 'keydown', 'click', 'scroll'];
-    events.forEach(e => window.addEventListener(e, resetTimer));
-    resetTimer();
-    return () => {
-      events.forEach(e => window.removeEventListener(e, resetTimer));
-      clearTimeout(window._logoutTimer);
+    onLogoutRef.current = onLogout;
+  }, [onLogout]);
+
+  useEffect(() => {
+    const ms = timeoutMinutes * 60 * 1000;
+    let timer;
+
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => onLogoutRef.current(), ms);
     };
-  }, [resetTimer]);
+
+    const startOnFirstInteraction = () => {
+      reset();
+      events.forEach(e => window.removeEventListener(e, startOnFirstInteraction));
+      events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    };
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    events.forEach(e =>
+      window.addEventListener(e, startOnFirstInteraction, { once: true, passive: true })
+    );
+
+    console.log('✅ useAutoLogout mounted — timer will start on first interaction');
+
+    return () => {
+      console.log('🔴 useAutoLogout UNMOUNTED — this should not happen on reload');
+      clearTimeout(timer);
+      events.forEach(e => {
+        window.removeEventListener(e, reset);
+        window.removeEventListener(e, startOnFirstInteraction);
+      });
+    };
+  }, [timeoutMinutes]);
 }

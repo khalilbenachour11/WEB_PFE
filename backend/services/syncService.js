@@ -103,6 +103,8 @@ async function upsertHeartbeat(payload) {
   const effectivePending = Math.max(Number(pending_count ?? 0), openCounts.pending);
 
   // ── 3. Upsert heartbeat row with effective counts ───────────────────────────
+  // updated_at = NOW() here is intentional — a real heartbeat from the device
+  // proves the agent is alive, so we do want to reset the online/offline clock.
   await db.promise().query(
     `INSERT INTO billetterie.agent_heartbeat
        (matricule_agent, pending_count, failed_count, last_sync_at, app_version, updated_at)
@@ -135,6 +137,15 @@ async function upsertHeartbeat(payload) {
 // ── syncAllStaleHeartbeats ────────────────────────────────────────────────────
 // On stream connect + every 30s: ensure heartbeat counts always reflect
 // the actual number of open anomalies, even for stale/offline agents.
+//
+// IMPORTANT: This function must NEVER touch updated_at on agent_heartbeat.
+// updated_at is the sole source of truth for online/offline status.
+// Even `SET updated_at = updated_at` is not a no-op — MySQL's
+// ON UPDATE CURRENT_TIMESTAMP fires on any UPDATE touching the row,
+// overwriting updated_at with NOW() regardless of the assignment.
+// The WHERE guard below prevents the UPDATE from executing at all
+// unless the counts are genuinely being raised, which is the only
+// safe way to suppress the auto-update trigger.
 
 async function syncAllStaleHeartbeats() {
   try {
@@ -156,14 +167,17 @@ async function syncAllStaleHeartbeats() {
       // Ensure placeholder rows match what's in agent_heartbeat
       await ensurePlaceholderAnomalies(row.matricule_agent, pendingOpen, failedOpen);
 
-      // Also ensure heartbeat counts are at least as high as open anomalies
+      // Raise heartbeat counts if they've fallen below the open anomaly count,
+      // but ONLY execute the UPDATE when values actually need to change.
+      // This prevents ON UPDATE CURRENT_TIMESTAMP from firing on every 30s tick
+      // and resetting updated_at — which would make offline agents appear online.
       await db.promise().query(
         `UPDATE billetterie.agent_heartbeat
          SET failed_count  = GREATEST(failed_count,  ?),
-             pending_count = GREATEST(pending_count, ?),
-             updated_at    = updated_at
-         WHERE matricule_agent = ?`,
-        [failedOpen, pendingOpen, row.matricule_agent]
+             pending_count = GREATEST(pending_count, ?)
+         WHERE matricule_agent = ?
+           AND (failed_count < ? OR pending_count < ?)`,
+        [failedOpen, pendingOpen, row.matricule_agent, failedOpen, pendingOpen]
       );
     }
 

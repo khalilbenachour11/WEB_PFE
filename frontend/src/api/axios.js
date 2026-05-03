@@ -6,7 +6,6 @@ const instance = axios.create({
     : 'http://localhost:5000/api',
 });
 
-// Ajouter le token automatiquement à chaque requête
 instance.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -15,7 +14,6 @@ instance.interceptors.request.use((config) => {
   return config;
 });
 
-// Rediriger vers login si token expiré
 instance.interceptors.response.use(
   (response) => response,
   (error) => {

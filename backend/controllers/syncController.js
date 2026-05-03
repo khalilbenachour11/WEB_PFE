@@ -4,9 +4,6 @@ const {
   syncAllStaleHeartbeats,
 } = require("../services/syncService");
 
-const db = require("../database");
-
-// Keep track of all active SSE clients
 const sseClients = new Set();
 
 // ── POST /api/sync/heartbeat ──────────────────────────────────────────────────
@@ -21,8 +18,8 @@ async function receiveHeartbeat(req, res) {
 
     await upsertHeartbeat(payload);
 
-    // Push fresh data to all SSE listeners immediately
-    _broadcastSnapshot();
+    // ✅ Only broadcast on real heartbeat — not on DB changes
+    await _broadcastSnapshot();
 
     return res.json({ success: true });
   } catch (err) {
@@ -40,27 +37,29 @@ async function syncStream(req, res) {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
-  // ── On every new frontend connection: scan stale heartbeats immediately ────
-  // This means as soon as anyone opens Sync Monitor or Gestion Anomalies,
-  // the placeholder anomalies are guaranteed to exist — no backend restart needed.
   syncAllStaleHeartbeats().catch((err) =>
     console.error("[syncStream] stale scan error:", err.message)
   );
 
-  // Send initial snapshot immediately
+  // Send initial snapshot on connect
   await _sendSnapshot(res);
 
-  // Register client
   sseClients.add(res);
 
-  // Poll every 2s as fallback
-  const interval = setInterval(async () => {
-    await _sendSnapshot(res);
-  }, 2000);
+  // Keep-alive ping every 30s to prevent connection timeout
+  const keepAlive = setInterval(() => {
+    res.write(`: ping\n\n`);
+  }, 30_000);
 
-  // Clean up on disconnect
+  // Refresh seconds_ago every 30s so offline detection stays accurate
+  // This only recalculates time math — NOT triggered by any DB change
+  const refreshInterval = setInterval(async () => {
+    await _sendSnapshot(res);
+  }, 30_000);
+
   req.on("close", () => {
-    clearInterval(interval);
+    clearInterval(keepAlive);
+    clearInterval(refreshInterval);
     sseClients.delete(res);
   });
 }

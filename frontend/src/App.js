@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './styles/global.css'; 
 import LoginPage from './pages/LoginPage';
@@ -22,27 +22,20 @@ import SyncMonitor from './pages/SyncMonitor';
 import GestionAnomalies from './pages/GestionAnomalies';
 
 export default function App() {
-  const [user, setUser] = useState(() => {
-    // ── Restaurer la session depuis localStorage au démarrage ──
-    try {
-      const token = localStorage.getItem('token');
-      const savedUser = localStorage.getItem('user');
-      if (token && savedUser) return JSON.parse(savedUser);
-    } catch { }
-    return null;
-  });
+  // ✅ No session restore — login required on every page reload
+  const [user, setUser] = useState(null);
 
-  const handleLogin = (userData, token) => {
+  const handleLogin = useCallback((userData, token) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
-  };
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-  };
+  }, []);
 
   useAutoLogout(handleLogout, 15);
 
@@ -93,9 +86,9 @@ export default function App() {
             {/* ── Routes Controleur ── */}
             {user.role === 'controleur' && (
               <>
-                <Route path="/"              element={<ControleurRecettes />} />
-                <Route path="/sync-monitor"  element={<SyncMonitor />} />
-                <Route path="/anomalies"     element={<GestionAnomalies />} />
+                <Route path="/"             element={<ControleurRecettes />} />
+                <Route path="/sync-monitor" element={<SyncMonitor />} />
+                <Route path="/anomalies"    element={<GestionAnomalies />} />
               </>
             )}
 
