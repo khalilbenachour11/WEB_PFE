@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const jwt    = require('jsonwebtoken');
 
 const ROLES_AUTORISES = ['informatique', 'direction', 'controleur'];
 
@@ -14,4 +15,21 @@ function isRoleAutorise(role) {
   return ROLES_AUTORISES.includes(role);
 }
 
-module.exports = { hashPassword, comparePassword, isRoleAutorise, ROLES_AUTORISES };
+function generateToken(payload) {
+  return jwt.sign(payload, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES || '8h',
+  });
+}
+
+function verifyToken(token) {
+  return jwt.verify(token, process.env.JWT_SECRET);
+}
+
+module.exports = {
+  hashPassword,
+  comparePassword,
+  isRoleAutorise,
+  generateToken,
+  verifyToken,
+  ROLES_AUTORISES,
+};

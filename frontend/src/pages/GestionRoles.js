@@ -171,7 +171,6 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 
 // --- Main Component ---
 
-const API = "http://localhost:5000/api";
 
 const formatDateOnly = (dateStr) => {
   if (!dateStr) return "—";
@@ -202,7 +201,7 @@ function ModalRole({ agent, onClose, onSuccess, isBootstrap }) {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API}/utilisateurs_web`, {
+      const res = await axios.post(`/utilisateurs_web`, {
         matricule_agent: agent.matricule_agent,
         role_web,
       });
@@ -277,8 +276,8 @@ export default function GestionRoles({ user }) {
   const fetchAll = async () => {
     try {
       const [agentsRes, usersRes] = await Promise.all([
-        axios.get(`${API}/agents`),
-        axios.get(`${API}/utilisateurs_web`),
+        axios.get(`/agents`),
+        axios.get(`/utilisateurs_web`),
       ]);
       setAgents(agentsRes.data.agents || []);
       setUtilisateurs(usersRes.data.data || []);
@@ -290,7 +289,7 @@ export default function GestionRoles({ user }) {
 
   const handleDelete = async (matricule) => {
     try {
-      await axios.delete(`${API}/utilisateurs_web/${matricule}`);
+      await axios.delete(`/utilisateurs_web/${matricule}`);
       setMessage({ text: "Rôle supprimé avec succès.", type: "success" });
       fetchAll();
     } catch {
@@ -425,7 +424,7 @@ export default function GestionRoles({ user }) {
                           alignSelf: "center",
                         }}
                       >
-                        protégé 
+                        protégé
                       </span>
                     )}
                   </td>

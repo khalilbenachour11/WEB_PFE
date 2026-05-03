@@ -1,18 +1,23 @@
 const db = require('../database');
-
-const { hashPassword, comparePassword, isRoleAutorise } = require('../services/auth.service');
+const {
+  hashPassword,
+  comparePassword,
+  isRoleAutorise,
+  generateToken,
+} = require('../services/auth.service');
 
 exports.login = (req, res) => {
   const { matricule, mot_de_passe } = req.body;
   db.query(
     `SELECT a.*, u.role_web
      FROM base_global.agent a
-     LEFT JOIN billetterie.utilisateurs_web u ON a.matricule_agent = u.matricule_agent
+     LEFT JOIN billetterie.utilisateurs_web u
+       ON a.matricule_agent = u.matricule_agent
      WHERE a.matricule_agent = ?`,
     [matricule],
     async (err, results) => {
-      if (err)               return res.json({ success: false, message: 'Erreur serveur' });
-      if (!results.length)   return res.json({ success: false, message: 'Matricule introuvable' });
+      if (err)             return res.json({ success: false, message: 'Erreur serveur' });
+      if (!results.length) return res.json({ success: false, message: 'Matricule introuvable' });
 
       const agent = results[0];
       const match = await comparePassword(mot_de_passe, agent.mot_de_passe);
@@ -22,15 +27,19 @@ exports.login = (req, res) => {
       if (!isRoleAutorise(roleEffectif))
         return res.json({ success: false, message: 'Accès refusé — rôle non autorisé' });
 
+      const payload = {
+        matricule: agent.matricule_agent,
+        nom:       agent.nom,
+        prenom:    agent.prenom,
+        role:      roleEffectif,
+      };
+
+      const token = generateToken(payload);
+
       res.json({
         success: true,
-        agent: {
-          id:        agent.matricule_agent,
-          matricule: agent.matricule_agent,
-          nom:       agent.nom,
-          prenom:    agent.prenom,
-          role:      roleEffectif,
-        },
+        token,
+        agent: payload,
       });
     }
   );
@@ -60,10 +69,14 @@ exports.loginBootstrap = async (req, res) => {
     if (rows[0].cnt > 0)
       return res.status(403).json({ success: false });
 
-    res.json({
-      success: true,
-      agent: { id: 0, matricule: 0, nom: 'Système', prenom: 'Admin', role: 'informatique' },
-    });
+    const payload = {
+      id: 0, matricule: 0,
+      nom: 'Système', prenom: 'Admin', role: 'informatique',
+    };
+
+    const token = generateToken(payload);
+
+    res.json({ success: true, token, agent: payload });
   } catch (err) {
     res.status(500).json({ success: false });
   }

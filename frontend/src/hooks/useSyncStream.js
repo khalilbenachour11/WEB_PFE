@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const API = "http://localhost:5000/api";
 const MAX_BACKOFF_MS = 30_000;
 
 export function useSyncStream() {
-  const [agents,    setAgents]    = useState([]);
+  const [agents, setAgents] = useState([]);
   const [connected, setConnected] = useState(false);
-  const esRef        = useRef(null);
-  const retryTimer   = useRef(null);
-  const retryDelay   = useRef(1_000);
-  const unmounted    = useRef(false);
+  const esRef = useRef(null);
+  const retryTimer = useRef(null);
+  const retryDelay = useRef(1_000);
+  const unmounted = useRef(false);
 
   const connect = useCallback(() => {
     // Tear down any existing connection cleanly
@@ -20,7 +19,7 @@ export function useSyncStream() {
     clearTimeout(retryTimer.current);
     if (unmounted.current) return;
 
-    const es = new EventSource(`${API}/sync/stream`);
+    const es = new EventSource(`/sync/stream`);
     esRef.current = es;
 
     es.onopen = () => {

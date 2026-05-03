@@ -1,6 +1,11 @@
-const router = require('express').Router();
+const router             = require('express').Router();
+const { requireAuth }    = require('../middlewares/auth.middleware');
 
+// ── Routes publiques (pas de token requis) ──
 router.use(require('./auth.routes'));
+
+// ── Routes protégées (token requis) ──
+router.use(requireAuth);
 router.use(require('./agents.routes'));
 router.use(require('./appareils.routes'));
 router.use(require('./lignes.routes'));

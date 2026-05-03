@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import * as XLSX from 'xlsx';
-import '../styles/global.css';
-import Notification from '../components/Notification';
-import Pagination from '../components/Pagination';
+import React, { useState, useEffect, useCallback } from "react";
 
-const API = 'http://localhost:5000/api';
+import * as XLSX from "xlsx";
+import "../styles/global.css";
+import Notification from "../components/Notification";
+import Pagination from "../components/Pagination";
+
+import axios from "../api/axios";
 const ITEMS_PER_PAGE = 15;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // UTILITAIRES
 // ══════════════════════════════════════════════════════════════════════════════
 
-const fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
+const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
 
 /**
  * Format a DB date string "YYYY-MM-DD HH:MM:SS" for display.
@@ -20,8 +20,8 @@ const fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
  * Pure string manipulation only.
  */
 const fmtDate = (d) => {
-  if (!d) return '—';
-  const s = String(d).trim().replace('T', ' ');
+  if (!d) return "—";
+  const s = String(d).trim().replace("T", " ");
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
   if (!m) return s;
   const [, yyyy, MM, dd, hh, mm, ss] = m;
@@ -33,8 +33,8 @@ const fmtDate = (d) => {
  * Pure string manipulation — never new Date().
  */
 const toDatetimeLocal = (d) => {
-  if (!d) return '';
-  return String(d).trim().replace(' ', 'T').slice(0, 19);
+  if (!d) return "";
+  return String(d).trim().replace(" ", "T").slice(0, 19);
 };
 
 /**
@@ -43,35 +43,61 @@ const toDatetimeLocal = (d) => {
  */
 const fromDatetimeLocal = (v) => {
   if (!v) return null;
-  return String(v).replace('T', ' ');
+  return String(v).replace("T", " ");
 };
 
 const extractAxiosError = (err) => {
   if (err.response) {
     const status = err.response.status;
-    const data   = err.response.data;
-    const msg    = data?.message || data?.error || JSON.stringify(data);
+    const data = err.response.data;
+    const msg = data?.message || data?.error || JSON.stringify(data);
     return `Erreur serveur ${status}: ${msg}`;
   }
-  if (err.request) return 'Aucune réponse du serveur — vérifiez que le serveur est démarré sur le port 5000.';
+  if (err.request)
+    return "Aucune réponse du serveur — vérifiez que le serveur est démarré sur le port 5000.";
   return `Erreur: ${err.message}`;
 };
 
 const STATUT_CONFIG = {
-  non_traite: { label: 'Non traité',  bg: 'rgba(190,56,23,0.1)',   color: 'var(--red)',      border: 'rgba(190,56,23,0.3)'  },
-  enregistre: { label: 'Enregistré', bg: 'rgba(27,107,58,0.1)',   color: 'var(--green)',    border: 'rgba(27,107,58,0.3)'  },
-  ignore:     { label: 'Ignoré',     bg: 'rgba(138,148,166,0.1)', color: 'var(--gray-400)', border: 'var(--gray-200)'      },
+  non_traite: {
+    label: "Non traité",
+    bg: "rgba(190,56,23,0.1)",
+    color: "var(--red)",
+    border: "rgba(190,56,23,0.3)",
+  },
+  enregistre: {
+    label: "Enregistré",
+    bg: "rgba(27,107,58,0.1)",
+    color: "var(--green)",
+    border: "rgba(27,107,58,0.3)",
+  },
+  ignore: {
+    label: "Ignoré",
+    bg: "rgba(138,148,166,0.1)",
+    color: "var(--gray-400)",
+    border: "var(--gray-200)",
+  },
 };
 
 function StatutBadge({ statut }) {
   const cfg = STATUT_CONFIG[statut] || STATUT_CONFIG.non_traite;
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      padding: '3px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
-      background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
-    }}>
-      {statut === 'non_traite' ? '⚠️' : statut === 'enregistre' ? '✅' : ''} {cfg.label}
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        padding: "3px 10px",
+        borderRadius: 20,
+        fontSize: "0.75rem",
+        fontWeight: 700,
+        background: cfg.bg,
+        color: cfg.color,
+        border: `1px solid ${cfg.border}`,
+      }}
+    >
+      {statut === "non_traite" ? "⚠️" : statut === "enregistre" ? "✅" : ""}{" "}
+      {cfg.label}
     </span>
   );
 }
@@ -81,123 +107,143 @@ function StatutBadge({ statut }) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function parseExcelMobile(workbook) {
-  const tickets  = [];
+  const tickets = [];
   const warnings = [];
   let matricule_agent = null;
 
   // ── 1. Lire matricule depuis sheet "Résumé" ────────────────────────────────
-  const resumeSheet = workbook.Sheets['Résumé'];
+  const resumeSheet = workbook.Sheets["Résumé"];
   if (resumeSheet) {
-    const rows = XLSX.utils.sheet_to_json(resumeSheet, { header: 1, defval: '' });
+    const rows = XLSX.utils.sheet_to_json(resumeSheet, {
+      header: 1,
+      defval: "",
+    });
     for (const row of rows) {
       for (const cell of row) {
-        const cellStr = String(cell || '');
+        const cellStr = String(cell || "");
         const matchMat = cellStr.match(/(?:matricule|mat)[^\d]*(\d{4,6})/i);
-        if (matchMat) { matricule_agent = parseInt(matchMat[1]); break; }
+        if (matchMat) {
+          matricule_agent = parseInt(matchMat[1]);
+          break;
+        }
       }
       if (matricule_agent) break;
     }
   }
 
   // ── 2. Lire tickets depuis sheet "Tickets" ─────────────────────────────────
-  const ticketSheet = workbook.Sheets['Tickets'];
+  const ticketSheet = workbook.Sheets["Tickets"];
   if (!ticketSheet) {
     warnings.push('Sheet "Tickets" introuvable dans le fichier.');
     return { tickets, warnings, matricule_agent };
   }
 
-  const allRows = XLSX.utils.sheet_to_json(ticketSheet, { header: 1, defval: '' });
+  const allRows = XLSX.utils.sheet_to_json(ticketSheet, {
+    header: 1,
+    defval: "",
+  });
 
   let headerIdx = -1;
-  let headers   = [];
+  let headers = [];
   for (let i = 0; i < allRows.length; i++) {
-    const row = allRows[i].map(c => String(c || '').trim());
-    if (row.includes('#') && row.includes('Voyage') && row.includes('Sync')) {
+    const row = allRows[i].map((c) => String(c || "").trim());
+    if (row.includes("#") && row.includes("Voyage") && row.includes("Sync")) {
       headerIdx = i;
-      headers   = row;
+      headers = row;
       break;
     }
   }
 
   if (headerIdx === -1) {
-    warnings.push('Entête introuvable dans le sheet "Tickets", colonnes attendues : #, Date, Heure, Voyage, Départ, Arrivée, Segment, Tarif, Qté, Prix unit. (ms), Total (ms), Sync');
+    warnings.push(
+      'Entête introuvable dans le sheet "Tickets", colonnes attendues : #, Date, Heure, Voyage, Départ, Arrivée, Segment, Tarif, Qté, Prix unit. (ms), Total (ms), Sync',
+    );
     return { tickets, warnings, matricule_agent };
   }
 
-  const col = (name) => headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
-  const iNum     = col('#');
-  const iDate    = col('Date');
-  const iHeure   = col('Heure');
-  const iVoyage  = col('Voyage');
-  const iDepart  = col('Départ');
-  const iArrivee = col('Arrivée');
-  const iTarif   = col('Tarif');
-  const iQte     = col('Qté');
-  const iPrix    = col('Prix unit');
-  const iTotal   = col('Total');
-  const iSync    = col('Sync');
+  const col = (name) =>
+    headers.findIndex((h) => h.toLowerCase().includes(name.toLowerCase()));
+  const iNum = col("#");
+  const iDate = col("Date");
+  const iHeure = col("Heure");
+  const iVoyage = col("Voyage");
+  const iDepart = col("Départ");
+  const iArrivee = col("Arrivée");
+  const iTarif = col("Tarif");
+  const iQte = col("Qté");
+  const iPrix = col("Prix unit");
+  const iTotal = col("Total");
+  const iSync = col("Sync");
 
   for (let i = headerIdx + 1; i < allRows.length; i++) {
-    const row  = allRows[i];
-    const sync = String(row[iSync] || '').toLowerCase().trim();
+    const row = allRows[i];
+    const sync = String(row[iSync] || "")
+      .toLowerCase()
+      .trim();
 
-    const numCell = String(row[iNum] || '').trim();
-    if (!numCell || numCell.toUpperCase() === 'TOTAL' || !sync) continue;
+    const numCell = String(row[iNum] || "").trim();
+    if (!numCell || numCell.toUpperCase() === "TOTAL" || !sync) continue;
 
-    if (sync !== 'failed' && sync !== 'pending') continue;
+    if (sync !== "failed" && sync !== "pending") continue;
 
-    const voyageRaw = String(row[iVoyage] || '');
-    const id_voyage = parseInt(voyageRaw.replace(/[^0-9]/g, '')) || null;
+    const voyageRaw = String(row[iVoyage] || "");
+    const id_voyage = parseInt(voyageRaw.replace(/[^0-9]/g, "")) || null;
 
     let date_heure = null;
-    const dateRaw   = String(row[iDate] || '').trim();
+    const dateRaw = String(row[iDate] || "").trim();
     const heureCell = row[iHeure];
 
     if (dateRaw) {
-      const parts = dateRaw.split('/');
+      const parts = dateRaw.split("/");
       if (parts.length === 3) {
-        const dateStr = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+        const dateStr = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
 
         // ── TIME FIX ──────────────────────────────────────────────────────────
         // XLSX numeric time cells are a fraction of a day representing LOCAL time
         // as written by the mobile app (Africa/Tunis = UTC+1).
         // Do NOT add any timezone offset — the value already is local time.
         // Simply convert the fraction to HH:MM:SS directly.
-        let heureFormatted = '00:00:00';
-        if (typeof heureCell === 'number') {
+        let heureFormatted = "00:00:00";
+        if (typeof heureCell === "number") {
           // heureCell is e.g. 0.46611... for 11:11:14 local time
           const totalSec = Math.round(heureCell * 86400);
           const hh = Math.floor(totalSec / 3600) % 24;
           const mm = Math.floor((totalSec % 3600) / 60);
           const ss = totalSec % 60;
-          heureFormatted = `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+          heureFormatted = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
         } else {
-          const heureRaw = String(heureCell || '00:00').trim();
-          heureFormatted = heureRaw.split(':').length >= 3 ? heureRaw : heureRaw + ':00';
+          const heureRaw = String(heureCell || "00:00").trim();
+          heureFormatted =
+            heureRaw.split(":").length >= 3 ? heureRaw : heureRaw + ":00";
         }
 
         date_heure = `${dateStr} ${heureFormatted}`;
       }
     }
 
-    const type_tarif = String(row[iTarif] || '').trim().toLowerCase() || null;
+    const type_tarif =
+      String(row[iTarif] || "")
+        .trim()
+        .toLowerCase() || null;
 
     tickets.push({
       matricule_agent: matricule_agent,
-      id_voyage:       id_voyage,
-      point_depart:    String(row[iDepart]  || '').trim() || null,
-      point_arrivee:   String(row[iArrivee] || '').trim() || null,
-      type_tarif:      type_tarif,
-      quantite:        parseInt(row[iQte]   || 1)  || 1,
-      prix_unitaire:   parseInt(row[iPrix]  || 0)  || 0,
-      montant_total:   parseInt(row[iTotal] || 0)  || 0,
-      date_heure:      date_heure,
-      erreur:          `Sync ${sync} importé depuis rapport journée`,
+      id_voyage: id_voyage,
+      point_depart: String(row[iDepart] || "").trim() || null,
+      point_arrivee: String(row[iArrivee] || "").trim() || null,
+      type_tarif: type_tarif,
+      quantite: parseInt(row[iQte] || 1) || 1,
+      prix_unitaire: parseInt(row[iPrix] || 0) || 0,
+      montant_total: parseInt(row[iTotal] || 0) || 0,
+      date_heure: date_heure,
+      erreur: `Sync ${sync} importé depuis rapport journée`,
     });
   }
 
   if (tickets.length === 0)
-    warnings.push('Aucun ticket avec Sync = "failed" ou "pending" trouvé dans le sheet "Tickets".');
+    warnings.push(
+      'Aucun ticket avec Sync = "failed" ou "pending" trouvé dans le sheet "Tickets".',
+    );
 
   return { tickets, warnings, matricule_agent };
 }
@@ -208,43 +254,50 @@ function parseExcelMobile(workbook) {
 
 function ModalCorrection({ anomalie, onClose, onSuccess }) {
   const [form, setForm] = useState({
-    id_voyage:       anomalie.id_voyage       || '',
-    point_depart:    anomalie.point_depart    || '',
-    point_arrivee:   anomalie.point_arrivee   || '',
-    type_tarif:      anomalie.type_tarif      || '',
-    quantite:        anomalie.quantite        || 1,
-    prix_unitaire:   anomalie.prix_unitaire   || 0,
-    montant_total:   anomalie.montant_total   || 0,
-    date_heure:      toDatetimeLocal(anomalie.date_heure),
-    matricule_agent: anomalie.matricule_agent || '',
+    id_voyage: anomalie.id_voyage || "",
+    point_depart: anomalie.point_depart || "",
+    point_arrivee: anomalie.point_arrivee || "",
+    type_tarif: anomalie.type_tarif || "",
+    quantite: anomalie.quantite || 1,
+    prix_unitaire: anomalie.prix_unitaire || 0,
+    montant_total: anomalie.montant_total || 0,
+    date_heure: toDatetimeLocal(anomalie.date_heure),
+    matricule_agent: anomalie.matricule_agent || "",
   });
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState('');
+  const [error, setError] = useState("");
 
   const handleChange = (field, value) => {
-    setForm(prev => {
+    setForm((prev) => {
       const updated = { ...prev, [field]: value };
-      if (field === 'quantite' || field === 'prix_unitaire') {
-        updated.montant_total = parseFloat(updated.quantite || 0) * parseFloat(updated.prix_unitaire || 0);
+      if (field === "quantite" || field === "prix_unitaire") {
+        updated.montant_total =
+          parseFloat(updated.quantite || 0) *
+          parseFloat(updated.prix_unitaire || 0);
       }
       return updated;
     });
   };
 
   const handleSubmit = async () => {
-    if (!form.id_voyage || !form.point_depart || !form.point_arrivee || !form.type_tarif)
-      return setError('Veuillez remplir tous les champs obligatoires (*).');
+    if (
+      !form.id_voyage ||
+      !form.point_depart ||
+      !form.point_arrivee ||
+      !form.type_tarif
+    )
+      return setError("Veuillez remplir tous les champs obligatoires (*).");
     setLoading(true);
-    setError('');
+    setError("");
     try {
       const dateHeure = fromDatetimeLocal(form.date_heure);
 
-      const res = await axios.put(`${API}/anomalies/${anomalie.id}/enregistrer`, {
+      const res = await axios.put(`/anomalies/${anomalie.id}/enregistrer`, {
         ...form,
-        quantite:      parseInt(form.quantite),
+        quantite: parseInt(form.quantite),
         prix_unitaire: parseInt(form.prix_unitaire),
         montant_total: parseInt(form.montant_total),
-        date_heure:    dateHeure,
+        date_heure: dateHeure,
       });
 
       if (res.data.success) {
@@ -254,7 +307,12 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
         setError(res.data.message || "Erreur lors de l'enregistrement.");
       }
     } catch (err) {
-      console.error('❌ Enregistrer anomalie error:', err.response?.status, err.response?.data, err.message);
+      console.error(
+        "❌ Enregistrer anomalie error:",
+        err.response?.status,
+        err.response?.data,
+        err.message,
+      );
       setError(extractAxiosError(err));
     }
     setLoading(false);
@@ -264,60 +322,92 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal-content"
-        style={{ maxWidth: 680, width: '95vw', maxHeight: '92vh', overflowY: 'auto' }}
-        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: 680,
+          width: "95vw",
+          maxHeight: "92vh",
+          overflowY: "auto",
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
           <div>
             <h2 className="modal-title">Corriger l'anomalie #{anomalie.id}</h2>
-            <div style={{ fontSize: '0.78rem', color: 'var(--gray-400)', marginTop: 2 }}>
+            <div
+              style={{
+                fontSize: "0.78rem",
+                color: "var(--gray-400)",
+                marginTop: 2,
+              }}
+            >
               {anomalie.prenom} {anomalie.nom}
-              {anomalie.matricule_agent && ` — Matricule ${anomalie.matricule_agent}`}
-              {' — '}{fmtDate(anomalie.date_heure)}
+              {anomalie.matricule_agent &&
+                ` — Matricule ${anomalie.matricule_agent}`}
+              {" — "}
+              {fmtDate(anomalie.date_heure)}
             </div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>
+            ✕
+          </button>
         </div>
 
-        <div style={{ padding: '20px 28px' }}>
-
+        <div style={{ padding: "20px 28px" }}>
           {anomalie.erreur && (
             <div className="alert alert-error" style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠ Erreur originale :</div>
-              <div style={{ fontSize: '0.82rem', fontFamily: 'monospace' }}>{anomalie.erreur}</div>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                ⚠ Erreur originale :
+              </div>
+              <div style={{ fontSize: "0.82rem", fontFamily: "monospace" }}>
+                {anomalie.erreur}
+              </div>
             </div>
           )}
 
-          {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>⚠ {error}</div>}
+          {error && (
+            <div className="alert alert-error" style={{ marginBottom: 16 }}>
+              ⚠ {error}
+            </div>
+          )}
 
           <div className="form-section-title">Informations du ticket</div>
 
           <div className="form-group">
             <label className="form-label">ID Voyage *</label>
-            <input className="form-input" type="number"
+            <input
+              className="form-input"
+              type="number"
               value={form.id_voyage}
-              onChange={e => handleChange('id_voyage', e.target.value)} />
+              onChange={(e) => handleChange("id_voyage", e.target.value)}
+            />
           </div>
 
           <div className="ligne-grid-2">
             <div className="form-group">
               <label className="form-label">Point départ *</label>
-              <input className="form-input"
+              <input
+                className="form-input"
                 value={form.point_depart}
-                onChange={e => handleChange('point_depart', e.target.value)} />
+                onChange={(e) => handleChange("point_depart", e.target.value)}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Point arrivée *</label>
-              <input className="form-input"
+              <input
+                className="form-input"
                 value={form.point_arrivee}
-                onChange={e => handleChange('point_arrivee', e.target.value)} />
+                onChange={(e) => handleChange("point_arrivee", e.target.value)}
+              />
             </div>
           </div>
 
           <div className="form-group">
             <label className="form-label">Type tarif *</label>
-            <select className="form-input" value={form.type_tarif}
-              onChange={e => handleChange('type_tarif', e.target.value)}>
+            <select
+              className="form-input"
+              value={form.type_tarif}
+              onChange={(e) => handleChange("type_tarif", e.target.value)}
+            >
               <option value="">-- Choisir --</option>
               <option value="normal">Normal</option>
               <option value="reduit_50">Réduit 50%</option>
@@ -330,47 +420,81 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
           <div className="ligne-grid-2">
             <div className="form-group">
               <label className="form-label">Quantité</label>
-              <input className="form-input" type="number" min="1"
+              <input
+                className="form-input"
+                type="number"
+                min="1"
                 value={form.quantite}
-                onChange={e => handleChange('quantite', e.target.value)} />
+                onChange={(e) => handleChange("quantite", e.target.value)}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Prix unitaire (ms)</label>
-              <input className="form-input" type="number" min="0"
+              <input
+                className="form-input"
+                type="number"
+                min="0"
                 value={form.prix_unitaire}
-                onChange={e => handleChange('prix_unitaire', e.target.value)} />
+                onChange={(e) => handleChange("prix_unitaire", e.target.value)}
+              />
             </div>
           </div>
 
           <div className="form-group">
             <label className="form-label">Montant total (ms)</label>
-            <input className="form-input" type="number" min="0"
+            <input
+              className="form-input"
+              type="number"
+              min="0"
               value={form.montant_total}
-              onChange={e => handleChange('montant_total', e.target.value)}
-              style={{ background: 'var(--green-light)', borderColor: 'rgba(27,107,58,0.3)', fontWeight: 700 }}
+              onChange={(e) => handleChange("montant_total", e.target.value)}
+              style={{
+                background: "var(--green-light)",
+                borderColor: "rgba(27,107,58,0.3)",
+                fontWeight: 700,
+              }}
             />
           </div>
 
           <div className="ligne-grid-2">
             <div className="form-group">
               <label className="form-label">Date / Heure</label>
-              <input className="form-input" type="datetime-local" step="1"
+              <input
+                className="form-input"
+                type="datetime-local"
+                step="1"
                 value={form.date_heure}
-                onChange={e => handleChange('date_heure', e.target.value)} />
+                onChange={(e) => handleChange("date_heure", e.target.value)}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Matricule agent</label>
-              <input className="form-input" type="number"
+              <input
+                className="form-input"
+                type="number"
                 value={form.matricule_agent}
-                onChange={e => handleChange('matricule_agent', e.target.value)} />
+                onChange={(e) =>
+                  handleChange("matricule_agent", e.target.value)
+                }
+              />
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, padding: '16px 28px', borderTop: '1px solid var(--gray-200)' }}>
-          <button className="btn btn-gray" onClick={onClose}>Annuler</button>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 12,
+            padding: "16px 28px",
+            borderTop: "1px solid var(--gray-200)",
+          }}
+        >
+          <button className="btn btn-gray" onClick={onClose}>
+            Annuler
+          </button>
           <button className="btn" onClick={handleSubmit} disabled={loading}>
-            {loading ? 'Enregistrement...' : 'Enregistrer dans la base'}
+            {loading ? "Enregistrement..." : "Enregistrer dans la base"}
           </button>
         </div>
       </div>
@@ -383,21 +507,21 @@ function ModalCorrection({ anomalie, onClose, onSuccess }) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function ModalImportExcel({ onClose, onSuccess }) {
-  const [tickets,         setTickets]         = useState([]);
-  const [warnings,        setWarnings]        = useState([]);
-  const [loading,         setLoading]         = useState(false);
-  const [verifying,       setVerifying]       = useState(false);
-  const [doublons,        setDoublons]        = useState({});
-  const [error,           setError]           = useState('');
-  const [fileName,        setFileName]        = useState('');
-  const [showPreview,     setShowPreview]     = useState(true);
-  const [matriculeManuel, setMatriculeManuel] = useState('');
+  const [tickets, setTickets] = useState([]);
+  const [warnings, setWarnings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [doublons, setDoublons] = useState({});
+  const [error, setError] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [showPreview, setShowPreview] = useState(true);
+  const [matriculeManuel, setMatriculeManuel] = useState("");
 
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setFileName(file.name);
-    setError('');
+    setError("");
     setDoublons({});
 
     const matchNom = file.name.match(/(\d{4,6})/);
@@ -406,17 +530,20 @@ function ModalImportExcel({ onClose, onSuccess }) {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
-        const wb     = XLSX.read(evt.target.result, { type: 'binary' });
+        const wb = XLSX.read(evt.target.result, { type: "binary" });
         const result = parseExcelMobile(wb);
 
         const mat = result.matricule_agent || matriculeNom;
-        result.tickets = result.tickets.map(t => ({ ...t, matricule_agent: t.matricule_agent || mat }));
+        result.tickets = result.tickets.map((t) => ({
+          ...t,
+          matricule_agent: t.matricule_agent || mat,
+        }));
 
         setTickets(result.tickets);
         setWarnings(result.warnings);
         if (mat) setMatriculeManuel(String(mat));
       } catch (err) {
-        setError('Erreur de lecture du fichier : ' + err.message);
+        setError("Erreur de lecture du fichier : " + err.message);
       }
     };
     reader.readAsBinaryString(file);
@@ -427,28 +554,37 @@ function ModalImportExcel({ onClose, onSuccess }) {
     setVerifying(true);
     try {
       const payload = ticketsList.map((t, i) => ({ ...t, _index: i }));
-      const res = await axios.post(`${API}/anomalies/verifier`, { tickets: payload });
+      const res = await axios.post(`/anomalies/verifier`, {
+        tickets: payload,
+      });
       if (res.data.success) {
         const map = {};
         for (const r of res.data.results) map[r.index] = r;
         setDoublons(map);
       }
     } catch (err) {
-      console.error('❌ Vérifier doublons error:', err.response?.status, err.response?.data, err.message);
+      console.error(
+        "❌ Vérifier doublons error:",
+        err.response?.status,
+        err.response?.data,
+        err.message,
+      );
     }
     setVerifying(false);
   };
 
-  const ticketsAvecMatricule = tickets.map(t => ({
+  const ticketsAvecMatricule = tickets.map((t) => ({
     ...t,
-    matricule_agent: matriculeManuel ? parseInt(matriculeManuel) : t.matricule_agent,
+    matricule_agent: matriculeManuel
+      ? parseInt(matriculeManuel)
+      : t.matricule_agent,
   }));
 
   useEffect(() => {
     if (ticketsAvecMatricule.length > 0) {
       handleVerifier(ticketsAvecMatricule);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickets]);
 
   const handleImport = async () => {
@@ -459,95 +595,153 @@ function ModalImportExcel({ onClose, onSuccess }) {
     });
 
     if (nouveaux.length === 0)
-      return setError('Aucun nouveau ticket à importer — tous sont déjà présents dans la base.');
+      return setError(
+        "Aucun nouveau ticket à importer — tous sont déjà présents dans la base.",
+      );
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const res = await axios.post(`${API}/anomalies/importer`, { tickets: nouveaux });
+      const res = await axios.post(`/anomalies/importer`, {
+        tickets: nouveaux,
+      });
       if (res.data.success) {
         const skipped = ticketsAvecMatricule.length - nouveaux.length;
-        const msg = skipped > 0
-          ? `${res.data.inserted} anomalie(s) importée(s) avec succès. ${skipped} doublon(s) ignoré(s).`
-          : `${res.data.inserted} anomalie(s) importée(s) avec succès.`;
+        const msg =
+          skipped > 0
+            ? `${res.data.inserted} anomalie(s) importée(s) avec succès. ${skipped} doublon(s) ignoré(s).`
+            : `${res.data.inserted} anomalie(s) importée(s) avec succès.`;
         onSuccess(msg);
         onClose();
       } else {
-        setError(res.data.message || 'Erreur lors de l\'importation.');
+        setError(res.data.message || "Erreur lors de l'importation.");
       }
     } catch (err) {
-      console.error('❌ Import error:', err.response?.status, err.response?.data, err.message);
+      console.error(
+        "❌ Import error:",
+        err.response?.status,
+        err.response?.data,
+        err.message,
+      );
       setError(extractAxiosError(err));
     }
 
     setLoading(false);
   };
 
-  const verificationComplete = Object.keys(doublons).length === tickets.length && tickets.length > 0;
-  const nbDoublons  = Object.values(doublons).filter(d => d.existe).length;
-  const nbNouveaux  = tickets.length - nbDoublons;
+  const verificationComplete =
+    Object.keys(doublons).length === tickets.length && tickets.length > 0;
+  const nbDoublons = Object.values(doublons).filter((d) => d.existe).length;
+  const nbNouveaux = tickets.length - nbDoublons;
   const allDoublons = verificationComplete && nbDoublons === tickets.length;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal-content"
-        style={{ maxWidth: 720, width: '95vw', maxHeight: '92vh', overflowY: 'auto' }}
-        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: 720,
+          width: "95vw",
+          maxHeight: "92vh",
+          overflowY: "auto",
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
           <h2 className="modal-title">Importer rapport journée (Excel)</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>
+            ✕
+          </button>
         </div>
 
-        <div style={{ padding: '20px 28px' }}>
-
-          <div style={{
-            background: 'rgba(13,43,94,0.04)', borderRadius: 8,
-            padding: '12px 16px', marginBottom: 20,
-            border: '1px solid rgba(13,43,94,0.1)', fontSize: '0.82rem',
-          }}>
-            <div style={{ fontWeight: 700, color: 'var(--navy)', marginBottom: 6 }}>
+        <div style={{ padding: "20px 28px" }}>
+          <div
+            style={{
+              background: "rgba(13,43,94,0.04)",
+              borderRadius: 8,
+              padding: "12px 16px",
+              marginBottom: 20,
+              border: "1px solid rgba(13,43,94,0.1)",
+              fontSize: "0.82rem",
+            }}
+          >
+            <div
+              style={{ fontWeight: 700, color: "var(--navy)", marginBottom: 6 }}
+            >
               📋 Format — rapport journée de l'app mobile SRTB
             </div>
-            <div style={{ color: 'var(--gray-600)', lineHeight: 1.6 }}>
+            <div style={{ color: "var(--gray-600)", lineHeight: 1.6 }}>
               Sheet <strong>"Tickets"</strong> avec colonnes :
-              <strong> #, Date, Heure, Voyage, Départ, Arrivées, Segment, Tarif, Qté, Prix unit. (ms), Total (ms), Sync</strong>
-              <br />Seuls les tickets avec <strong>Sync = "failed"</strong> ou <strong>"pending"</strong> seront importés.
-              <br />Les tickets déjà présents dans la base seront automatiquement ignorés.
+              <strong>
+                {" "}
+                #, Date, Heure, Voyage, Départ, Arrivées, Segment, Tarif, Qté,
+                Prix unit. (ms), Total (ms), Sync
+              </strong>
+              <br />
+              Seuls les tickets avec <strong>Sync = "failed"</strong> ou{" "}
+              <strong>"pending"</strong> seront importés.
+              <br />
+              Les tickets déjà présents dans la base seront automatiquement
+              ignorés.
             </div>
           </div>
 
           {warnings.map((w, i) => (
-            <div key={i} className="alert alert-error" style={{ marginBottom: 8 }}>⚠ {w}</div>
+            <div
+              key={i}
+              className="alert alert-error"
+              style={{ marginBottom: 8 }}
+            >
+              ⚠ {w}
+            </div>
           ))}
 
           {error && (
-            <div className="alert alert-error" style={{ marginBottom: 16, fontFamily: 'monospace', fontSize: '0.82rem' }}>
+            <div
+              className="alert alert-error"
+              style={{
+                marginBottom: 16,
+                fontFamily: "monospace",
+                fontSize: "0.82rem",
+              }}
+            >
               ⚠ {error}
             </div>
           )}
 
           <div className="form-group">
-            <label className="form-label">Fichier Excel (.xlsx) — rapport journée</label>
-            <input type="file" accept=".xlsx,.xls" className="form-input"
-              style={{ padding: '8px 12px', cursor: 'pointer' }}
-              onChange={handleFile} />
+            <label className="form-label">
+              Fichier Excel (.xlsx) — rapport journée
+            </label>
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              className="form-input"
+              style={{ padding: "8px 12px", cursor: "pointer" }}
+              onChange={handleFile}
+            />
           </div>
 
           {tickets.length > 0 && (
             <div className="form-group">
               <label className="form-label">Matricule agent</label>
-              <div style={{
-                padding: '10px 14px', borderRadius: 8, fontSize: '0.9rem', fontWeight: 700,
-                background: matriculeManuel ? 'rgba(27,107,58,0.07)' : 'rgba(190,56,23,0.07)',
-                border: `1px solid ${matriculeManuel ? 'rgba(27,107,58,0.3)' : 'rgba(190,56,23,0.3)'}`,
-                color: matriculeManuel ? 'var(--green)' : 'var(--red)',
-              }}>
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  fontSize: "0.9rem",
+                  fontWeight: 700,
+                  background: matriculeManuel
+                    ? "rgba(27,107,58,0.07)"
+                    : "rgba(190,56,23,0.07)",
+                  border: `1px solid ${matriculeManuel ? "rgba(27,107,58,0.3)" : "rgba(190,56,23,0.3)"}`,
+                  color: matriculeManuel ? "var(--green)" : "var(--red)",
+                }}
+              >
                 {matriculeManuel
                   ? `✓ ${matriculeManuel}`
-                  : '⚠ Matricule non détecté dans le fichier'}
+                  : "⚠ Matricule non détecté dans le fichier"}
               </div>
             </div>
           )}
@@ -555,48 +749,94 @@ function ModalImportExcel({ onClose, onSuccess }) {
           {tickets.length > 0 && (
             <>
               <div className="alert alert-success">
-                ✓ <strong>{tickets.length}</strong> ticket(s) failed/pending dans "{fileName}"
+                ✓ <strong>{tickets.length}</strong> ticket(s) failed/pending
+                dans "{fileName}"
                 {verificationComplete && (
                   <>
                     {nbNouveaux > 0 && (
-                      <span style={{ marginLeft: 12, color: 'var(--green)', fontWeight: 700 }}>
-                        · {nbNouveaux} nouveau{nbNouveaux > 1 ? 'x' : ''}
+                      <span
+                        style={{
+                          marginLeft: 12,
+                          color: "var(--green)",
+                          fontWeight: 700,
+                        }}
+                      >
+                        · {nbNouveaux} nouveau{nbNouveaux > 1 ? "x" : ""}
                       </span>
                     )}
                     {nbDoublons > 0 && (
-                      <span style={{ marginLeft: 8, color: 'var(--red)', fontWeight: 700 }}>
-                        · {nbDoublons} déjà dans la base (ignoré{nbDoublons > 1 ? 's' : ''})
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          color: "var(--red)",
+                          fontWeight: 700,
+                        }}
+                      >
+                        · {nbDoublons} déjà dans la base (ignoré
+                        {nbDoublons > 1 ? "s" : ""})
                       </span>
                     )}
                   </>
                 )}
                 {verifying && (
-                  <span style={{ marginLeft: 12, color: 'var(--gray-400)', fontSize: '0.78rem' }}>
+                  <span
+                    style={{
+                      marginLeft: 12,
+                      color: "var(--gray-400)",
+                      fontSize: "0.78rem",
+                    }}
+                  >
                     🔍 Vérification en cours...
                   </span>
                 )}
               </div>
 
               {allDoublons && !verifying && (
-                <div className="alert alert-error" style={{ marginTop: 10, fontWeight: 600 }}>
-                  ⛔ Tous les tickets de ce fichier sont déjà présents dans la base. Importation impossible.
+                <div
+                  className="alert alert-error"
+                  style={{ marginTop: 10, fontWeight: 600 }}
+                >
+                  ⛔ Tous les tickets de ce fichier sont déjà présents dans la
+                  base. Importation impossible.
                 </div>
               )}
 
               <div style={{ marginTop: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 10,
+                  }}
+                >
                   <div className="form-section-title" style={{ margin: 0 }}>
-                    Aperçu ({tickets.length} ticket{tickets.length > 1 ? 's' : ''})
+                    Aperçu ({tickets.length} ticket
+                    {tickets.length > 1 ? "s" : ""})
                   </div>
-                  <button className="action-btn edit" style={{ fontSize: '0.75rem' }}
-                    onClick={() => setShowPreview(!showPreview)}>
-                    {showPreview ? '▲ Masquer' : '▼ Afficher'}
+                  <button
+                    className="action-btn edit"
+                    style={{ fontSize: "0.75rem" }}
+                    onClick={() => setShowPreview(!showPreview)}
+                  >
+                    {showPreview ? "▲ Masquer" : "▼ Afficher"}
                   </button>
                 </div>
 
                 {showPreview && (
-                  <div style={{ overflowX: 'auto', maxHeight: 260, overflowY: 'auto', border: '1px solid var(--gray-100)', borderRadius: 8 }}>
-                    <table className="data-table" style={{ margin: 0, fontSize: '0.78rem' }}>
+                  <div
+                    style={{
+                      overflowX: "auto",
+                      maxHeight: 260,
+                      overflowY: "auto",
+                      border: "1px solid var(--gray-100)",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <table
+                      className="data-table"
+                      style={{ margin: 0, fontSize: "0.78rem" }}
+                    >
                       <thead>
                         <tr>
                           <th>#</th>
@@ -612,43 +852,106 @@ function ModalImportExcel({ onClose, onSuccess }) {
                       </thead>
                       <tbody>
                         {ticketsAvecMatricule.map((t, i) => {
-                          const doublon   = doublons[i];
+                          const doublon = doublons[i];
                           const isDoublon = doublon?.existe;
                           return (
-                            <tr key={i} style={isDoublon ? { background: 'rgba(190,56,23,0.06)' } : {}}>
+                            <tr
+                              key={i}
+                              style={
+                                isDoublon
+                                  ? { background: "rgba(190,56,23,0.06)" }
+                                  : {}
+                              }
+                            >
                               <td>{i + 1}</td>
-                              <td><span className="badge-matricule">#{t.id_voyage}</span></td>
                               <td>
-                                <span style={{ color: 'var(--navy)', fontWeight: 500 }}>{t.point_depart}</span>
-                                <span style={{ color: 'var(--gray-400)', margin: '0 4px' }}>→</span>
+                                <span className="badge-matricule">
+                                  #{t.id_voyage}
+                                </span>
+                              </td>
+                              <td>
+                                <span
+                                  style={{
+                                    color: "var(--navy)",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {t.point_depart}
+                                </span>
+                                <span
+                                  style={{
+                                    color: "var(--gray-400)",
+                                    margin: "0 4px",
+                                  }}
+                                >
+                                  →
+                                </span>
                                 <span>{t.point_arrivee}</span>
                               </td>
                               <td>{t.type_tarif}</td>
-                              <td style={{ textAlign: 'center' }}>{t.quantite}</td>
+                              <td style={{ textAlign: "center" }}>
+                                {t.quantite}
+                              </td>
                               <td>{fmt(t.prix_unitaire)} ms</td>
-                              <td><span className="montant-badge">{fmt(t.montant_total)} ms</span></td>
-                              <td style={{ fontSize: '0.72rem', color: 'var(--gray-600)', whiteSpace: 'nowrap' }}>
+                              <td>
+                                <span className="montant-badge">
+                                  {fmt(t.montant_total)} ms
+                                </span>
+                              </td>
+                              <td
+                                style={{
+                                  fontSize: "0.72rem",
+                                  color: "var(--gray-600)",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
                                 {t.date_heure}
                               </td>
                               <td>
                                 {verifying ? (
-                                  <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)' }}>...</span>
+                                  <span
+                                    style={{
+                                      fontSize: "0.7rem",
+                                      color: "var(--gray-400)",
+                                    }}
+                                  >
+                                    ...
+                                  </span>
                                 ) : isDoublon ? (
-                                  <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                    padding: '2px 8px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 700,
-                                    background: 'rgba(190,56,23,0.1)', color: 'var(--red)',
-                                    border: '1px solid rgba(190,56,23,0.3)', whiteSpace: 'nowrap',
-                                  }}>
-                                    {doublon.existeVendu ? 'Déjà vendu' : 'Déjà en anomalie'}
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      padding: "2px 8px",
+                                      borderRadius: 20,
+                                      fontSize: "0.7rem",
+                                      fontWeight: 700,
+                                      background: "rgba(190,56,23,0.1)",
+                                      color: "var(--red)",
+                                      border: "1px solid rgba(190,56,23,0.3)",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {doublon.existeVendu
+                                      ? "Déjà vendu"
+                                      : "Déjà en anomalie"}
                                   </span>
                                 ) : doublon ? (
-                                  <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                    padding: '2px 8px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 700,
-                                    background: 'rgba(27,107,58,0.1)', color: 'var(--green)',
-                                    border: '1px solid rgba(27,107,58,0.3)',
-                                  }}>
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      padding: "2px 8px",
+                                      borderRadius: 20,
+                                      fontSize: "0.7rem",
+                                      fontWeight: 700,
+                                      background: "rgba(27,107,58,0.1)",
+                                      color: "var(--green)",
+                                      border: "1px solid rgba(27,107,58,0.3)",
+                                    }}
+                                  >
                                     ✓ Nouveau
                                   </span>
                                 ) : null}
@@ -658,13 +961,38 @@ function ModalImportExcel({ onClose, onSuccess }) {
                         })}
                       </tbody>
                       <tfoot>
-                        <tr style={{ background: 'var(--navy)' }}>
-                          <td colSpan={7} style={{ color: 'var(--gold)', fontWeight: 700, fontSize: '0.75rem', padding: '8px 18px', textTransform: 'uppercase', letterSpacing: 1 }}>
+                        <tr style={{ background: "var(--navy)" }}>
+                          <td
+                            colSpan={7}
+                            style={{
+                              color: "var(--gold)",
+                              fontWeight: 700,
+                              fontSize: "0.75rem",
+                              padding: "8px 18px",
+                              textTransform: "uppercase",
+                              letterSpacing: 1,
+                            }}
+                          >
                             Total
                           </td>
-                          <td style={{ padding: '8px 18px' }}>
-                            <span style={{ background: 'var(--gold)', color: 'var(--navy-dark)', padding: '2px 10px', borderRadius: 20, fontWeight: 700, fontSize: '0.82rem' }}>
-                              {fmt(tickets.reduce((s, t) => s + Number(t.montant_total || 0), 0))} ms
+                          <td style={{ padding: "8px 18px" }}>
+                            <span
+                              style={{
+                                background: "var(--gold)",
+                                color: "var(--navy-dark)",
+                                padding: "2px 10px",
+                                borderRadius: 20,
+                                fontWeight: 700,
+                                fontSize: "0.82rem",
+                              }}
+                            >
+                              {fmt(
+                                tickets.reduce(
+                                  (s, t) => s + Number(t.montant_total || 0),
+                                  0,
+                                ),
+                              )}{" "}
+                              ms
                             </span>
                           </td>
                           <td />
@@ -678,22 +1006,36 @@ function ModalImportExcel({ onClose, onSuccess }) {
           )}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, padding: '16px 28px', borderTop: '1px solid var(--gray-200)' }}>
-          <button className="btn btn-gray" onClick={onClose}>Annuler</button>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 12,
+            padding: "16px 28px",
+            borderTop: "1px solid var(--gray-200)",
+          }}
+        >
+          <button className="btn btn-gray" onClick={onClose}>
+            Annuler
+          </button>
           <button
             className="btn"
             onClick={handleImport}
             disabled={loading || !tickets.length || allDoublons}
-            title={allDoublons ? 'Tous les tickets sont déjà dans la base — importation impossible' : ''}
-            style={allDoublons ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+            title={
+              allDoublons
+                ? "Tous les tickets sont déjà dans la base — importation impossible"
+                : ""
+            }
+            style={allDoublons ? { opacity: 0.5, cursor: "not-allowed" } : {}}
           >
             {loading
-              ? 'Importation...'
+              ? "Importation..."
               : allDoublons
-              ? '⛔ Déjà importés'
-              : verificationComplete && nbNouveaux < tickets.length
-              ? `Importer ${nbNouveaux} nouveau${nbNouveaux > 1 ? 'x' : ''} (${nbDoublons} ignoré${nbDoublons > 1 ? 's' : ''})`
-              : `Importer ${tickets.length > 0 ? `(${tickets.length} ticket${tickets.length > 1 ? 's' : ''})` : ''}`}
+                ? "⛔ Déjà importés"
+                : verificationComplete && nbNouveaux < tickets.length
+                  ? `Importer ${nbNouveaux} nouveau${nbNouveaux > 1 ? "x" : ""} (${nbDoublons} ignoré${nbDoublons > 1 ? "s" : ""})`
+                  : `Importer ${tickets.length > 0 ? `(${tickets.length} ticket${tickets.length > 1 ? "s" : ""})` : ""}`}
           </button>
         </div>
       </div>
@@ -706,76 +1048,113 @@ function ModalImportExcel({ onClose, onSuccess }) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export default function GestionAnomalies() {
-  const [anomalies,    setAnomalies]    = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [message,      setMessage]      = useState({ text: '', type: '' });
-  const [filterStatut, setFilterStatut] = useState('non_traite');
-  const [search,       setSearch]       = useState('');
-  const [currentPage,  setCurrentPage]  = useState(1);
+  const [anomalies, setAnomalies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState({ text: "", type: "" });
+  const [filterStatut, setFilterStatut] = useState("non_traite");
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [modalCorrect, setModalCorrect] = useState(null);
-  const [showImport,   setShowImport]   = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   const fetchAnomalies = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/anomalies`);
+      const res = await axios.get(`/anomalies`);
       setAnomalies(res.data.anomalies || []);
     } catch (err) {
-      console.error('❌ fetchAnomalies error:', err.response?.status, err.response?.data, err.message);
-      setMessage({ text: extractAxiosError(err), type: 'error' });
+      console.error(
+        "❌ fetchAnomalies error:",
+        err.response?.status,
+        err.response?.data,
+        err.message,
+      );
+      setMessage({ text: extractAxiosError(err), type: "error" });
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchAnomalies(); }, [fetchAnomalies]);
-  useEffect(() => { setCurrentPage(1); }, [filterStatut, search]);
+  useEffect(() => {
+    fetchAnomalies();
+  }, [fetchAnomalies]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatut, search]);
 
   const handleIgnorer = async (id) => {
     try {
-      const res = await axios.put(`${API}/anomalies/${id}/ignorer`);
+      const res = await axios.put(`/anomalies/${id}/ignorer`);
       if (res.data.success) {
-        setMessage({ text: 'Anomalie ignorée.', type: 'success' });
+        setMessage({ text: "Anomalie ignorée.", type: "success" });
         fetchAnomalies();
       } else {
-        setMessage({ text: res.data.message || 'Erreur lors de la mise à jour.', type: 'error' });
+        setMessage({
+          text: res.data.message || "Erreur lors de la mise à jour.",
+          type: "error",
+        });
       }
     } catch (err) {
-      console.error('❌ Ignorer error:', err.response?.status, err.response?.data, err.message);
-      setMessage({ text: extractAxiosError(err), type: 'error' });
+      console.error(
+        "❌ Ignorer error:",
+        err.response?.status,
+        err.response?.data,
+        err.message,
+      );
+      setMessage({ text: extractAxiosError(err), type: "error" });
     }
   };
 
-  const filtered = anomalies.filter(a => {
+  const filtered = anomalies.filter((a) => {
     const q = search.toLowerCase();
     const matchStatut = filterStatut
       ? a.statut === filterStatut
-      : a.statut !== 'enregistre';
-    const matchSearch = !q ||
+      : a.statut !== "enregistre";
+    const matchSearch =
+      !q ||
       String(a.matricule_agent).includes(q) ||
-      (a.nom    || '').toLowerCase().includes(q) ||
-      (a.prenom || '').toLowerCase().includes(q) ||
-      (a.point_depart  || '').toLowerCase().includes(q) ||
-      (a.point_arrivee || '').toLowerCase().includes(q) ||
-      String(a.id_voyage || '').includes(q);
+      (a.nom || "").toLowerCase().includes(q) ||
+      (a.prenom || "").toLowerCase().includes(q) ||
+      (a.point_depart || "").toLowerCase().includes(q) ||
+      (a.point_arrivee || "").toLowerCase().includes(q) ||
+      String(a.id_voyage || "").includes(q);
     return matchStatut && matchSearch;
   });
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
-  const paginated  = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const paginated = filtered.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE,
+  );
 
-  const nbNonTraite  = anomalies.filter(a => a.statut === 'non_traite').length;
-  const nbEnregistre = anomalies.filter(a => a.statut === 'enregistre').length;
-  const nbIgnore     = anomalies.filter(a => a.statut === 'ignore').length;
-  const totalMs      = anomalies
-    .filter(a => a.statut === 'non_traite')
+  const nbNonTraite = anomalies.filter((a) => a.statut === "non_traite").length;
+  const nbEnregistre = anomalies.filter(
+    (a) => a.statut === "enregistre",
+  ).length;
+  const nbIgnore = anomalies.filter((a) => a.statut === "ignore").length;
+  const totalMs = anomalies
+    .filter((a) => a.statut === "non_traite")
     .reduce((s, a) => s + Number(a.montant_total || 0), 0);
 
   const handleExport = () => {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['#', 'Agent', 'Matricule', 'Voyage', 'Départ', 'Arrivée', 'Tarif', 'Qté', 'Prix unit. (ms)', 'Montant (ms)', 'Date', 'Erreur', 'Statut'],
+      [
+        "#",
+        "Agent",
+        "Matricule",
+        "Voyage",
+        "Départ",
+        "Arrivée",
+        "Tarif",
+        "Qté",
+        "Prix unit. (ms)",
+        "Montant (ms)",
+        "Date",
+        "Erreur",
+        "Statut",
+      ],
       ...filtered.map((a, i) => [
         i + 1,
-        `${a.prenom || ''} ${a.nom || ''}`.trim(),
+        `${a.prenom || ""} ${a.nom || ""}`.trim(),
         a.matricule_agent,
         a.id_voyage,
         a.point_depart,
@@ -790,23 +1169,34 @@ export default function GestionAnomalies() {
       ]),
     ]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Anomalies');
-    XLSX.writeFile(wb, `anomalies_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Anomalies");
+    XLSX.writeFile(
+      wb,
+      `anomalies_${new Date().toISOString().slice(0, 10)}.xlsx`,
+    );
   };
 
   return (
     <div>
-      <Notification message={message} onDone={() => setMessage({ text: '', type: '' })} />
+      <Notification
+        message={message}
+        onDone={() => setMessage({ text: "", type: "" })}
+      />
 
       {modalCorrect && (
         <ModalCorrection
           anomalie={modalCorrect}
           onClose={() => setModalCorrect(null)}
           onSuccess={() => {
-            setMessage({ text: 'Ticket enregistré dans la base avec succès !', type: 'success' });
-            setAnomalies(prev => prev.map(a =>
-              a.id === modalCorrect.id ? { ...a, statut: 'enregistre' } : a
-            ));
+            setMessage({
+              text: "Ticket enregistré dans la base avec succès !",
+              type: "success",
+            });
+            setAnomalies((prev) =>
+              prev.map((a) =>
+                a.id === modalCorrect.id ? { ...a, statut: "enregistre" } : a,
+              ),
+            );
             setModalCorrect(null);
             fetchAnomalies();
           }}
@@ -817,19 +1207,23 @@ export default function GestionAnomalies() {
         <ModalImportExcel
           onClose={() => setShowImport(false)}
           onSuccess={(msg) => {
-            setMessage({ text: msg, type: 'success' });
+            setMessage({ text: msg, type: "success" });
             fetchAnomalies();
           }}
         />
       )}
 
-      <div className="breadcrumb">SRTB › Contrôleur › <span>Gestion des anomalies</span></div>
+      <div className="breadcrumb">
+        SRTB › Contrôleur › <span>Gestion des anomalies</span>
+      </div>
       <div className="page-header">
         <div>
           <div className="page-title">Gestion des anomalies</div>
-          <div className="page-subtitle">Correction manuelle des tickets non synchronisés</div>
+          <div className="page-subtitle">
+            Correction manuelle des tickets non synchronisés
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: "flex", gap: 10 }}>
           <button className="btn btn-gold" onClick={() => setShowImport(true)}>
             Importer rapport Excel
           </button>
@@ -840,22 +1234,31 @@ export default function GestionAnomalies() {
       </div>
 
       <div className="kpi-controleur-grid">
-        <div className="kpi-controleur-card red" style={{ cursor: 'pointer' }}
-          onClick={() => setFilterStatut('non_traite')}>
+        <div
+          className="kpi-controleur-card red"
+          style={{ cursor: "pointer" }}
+          onClick={() => setFilterStatut("non_traite")}
+        >
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{nbNonTraite}</div>
             <div className="kpi-ctrl-label">Non traités</div>
           </div>
         </div>
-        <div className="kpi-controleur-card green" style={{ cursor: 'pointer' }}
-          onClick={() => setFilterStatut('enregistre')}>
+        <div
+          className="kpi-controleur-card green"
+          style={{ cursor: "pointer" }}
+          onClick={() => setFilterStatut("enregistre")}
+        >
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{nbEnregistre}</div>
             <div className="kpi-ctrl-label">Enregistrés</div>
           </div>
         </div>
-        <div className="kpi-controleur-card navy" style={{ cursor: 'pointer' }}
-          onClick={() => setFilterStatut('ignore')}>
+        <div
+          className="kpi-controleur-card navy"
+          style={{ cursor: "pointer" }}
+          onClick={() => setFilterStatut("ignore")}
+        >
           <div className="kpi-ctrl-body">
             <div className="kpi-ctrl-value">{nbIgnore}</div>
             <div className="kpi-ctrl-label">Ignorés</div>
@@ -863,62 +1266,98 @@ export default function GestionAnomalies() {
         </div>
         <div className="kpi-controleur-card gold">
           <div className="kpi-ctrl-body">
-            <div className="kpi-ctrl-value" style={{ fontSize: '1.1rem' }}>
-              {(totalMs / 1000).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT
+            <div className="kpi-ctrl-value" style={{ fontSize: "1.1rem" }}>
+              {(totalMs / 1000).toLocaleString("fr-FR", {
+                minimumFractionDigits: 3,
+              })}{" "}
+              DT
             </div>
             <div className="kpi-ctrl-label">Montant non traité</div>
           </div>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 20, padding: '16px 24px' }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="card" style={{ marginBottom: 20, padding: "16px 24px" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
           <input
             className="search-input"
             style={{ margin: 0, flex: 1, minWidth: 200 }}
             placeholder="Rechercher par agent, voyage, trajet..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
-          {['', 'non_traite', 'enregistre', 'ignore'].map(s => (
+          {["", "non_traite", "enregistre", "ignore"].map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatut(s)}
               style={{
-                padding: '7px 16px', borderRadius: 20, cursor: 'pointer',
-                border: filterStatut === s ? 'none' : '1px solid var(--gray-200)',
-                background: filterStatut === s ? 'var(--navy)' : 'transparent',
-                color: filterStatut === s ? '#fff' : 'var(--gray-600)',
+                padding: "7px 16px",
+                borderRadius: 20,
+                cursor: "pointer",
+                border:
+                  filterStatut === s ? "none" : "1px solid var(--gray-200)",
+                background: filterStatut === s ? "var(--navy)" : "transparent",
+                color: filterStatut === s ? "#fff" : "var(--gray-600)",
                 fontWeight: filterStatut === s ? 700 : 400,
-                fontSize: '0.82rem', whiteSpace: 'nowrap',
+                fontSize: "0.82rem",
+                whiteSpace: "nowrap",
               }}
             >
-              {s === ''           ? `Tous (${nbNonTraite + nbIgnore})`
-               : s === 'non_traite' ? `Non traités (${nbNonTraite})`
-               : s === 'enregistre' ? `✅ Enregistrés (${nbEnregistre})`
-               :                      `Ignorés (${nbIgnore})`}
+              {s === ""
+                ? `Tous (${nbNonTraite + nbIgnore})`
+                : s === "non_traite"
+                  ? `Non traités (${nbNonTraite})`
+                  : s === "enregistre"
+                    ? `✅ Enregistrés (${nbEnregistre})`
+                    : `Ignorés (${nbIgnore})`}
             </button>
           ))}
         </div>
-        <p style={{ fontSize: '0.8rem', color: 'var(--gray-400)', marginTop: 10 }}>
-          <strong style={{ color: 'var(--navy)' }}>{filtered.length}</strong> anomalie(s) trouvée(s)
+        <p
+          style={{
+            fontSize: "0.8rem",
+            color: "var(--gray-400)",
+            marginTop: 10,
+          }}
+        >
+          <strong style={{ color: "var(--navy)" }}>{filtered.length}</strong>{" "}
+          anomalie(s) trouvée(s)
         </p>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>
+          <div
+            style={{
+              textAlign: "center",
+              padding: 60,
+              color: "var(--gray-400)",
+            }}
+          >
             Chargement...
           </div>
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>
+          <div
+            style={{
+              textAlign: "center",
+              padding: 60,
+              color: "var(--gray-400)",
+            }}
+          >
             {anomalies.length === 0
-              ? '📥 Aucune anomalie, importez un rapport Excel pour commencer.'
-              : 'Aucune anomalie ne correspond aux filtres.'}
+              ? "📥 Aucune anomalie, importez un rapport Excel pour commencer."
+              : "Aucune anomalie ne correspond aux filtres."}
           </div>
         ) : (
           <>
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ overflowX: "auto" }}>
               <table className="data-table" style={{ margin: 0 }}>
                 <thead>
                   <tr>
@@ -931,72 +1370,131 @@ export default function GestionAnomalies() {
                     <th>Montant</th>
                     <th>Date</th>
                     <th>Statut</th>
-                    <th style={{ textAlign: 'center' }}>Actions</th>
+                    <th style={{ textAlign: "center" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginated.map((a) => (
-                    <tr key={a.id} style={a.statut === 'enregistre' ? { opacity: 0.55 } : {}}>
-                      <td style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>#{a.id}</td>
+                    <tr
+                      key={a.id}
+                      style={a.statut === "enregistre" ? { opacity: 0.55 } : {}}
+                    >
+                      <td
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "var(--gray-400)",
+                        }}
+                      >
+                        #{a.id}
+                      </td>
                       <td>
-                        <div style={{ fontWeight: 500, fontSize: '0.87rem' }}>
+                        <div style={{ fontWeight: 500, fontSize: "0.87rem" }}>
                           {a.prenom} {a.nom}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--gray-400)' }}>
-                          {a.matricule_agent || '—'}
+                        <div
+                          style={{
+                            fontSize: "0.72rem",
+                            color: "var(--gray-400)",
+                          }}
+                        >
+                          {a.matricule_agent || "—"}
                         </div>
                       </td>
-                      <td><span className="badge-matricule">#{a.id_voyage || '—'}</span></td>
-                      <td style={{ fontSize: '0.87rem' }}>
-                        <span style={{ color: 'var(--navy)', fontWeight: 500 }}>{a.point_depart || '—'}</span>
-                        <span style={{ color: 'var(--gray-400)', margin: '0 4px' }}>→</span>
-                        <span>{a.point_arrivee || '—'}</span>
-                      </td>
                       <td>
-                        <span className="badge-role informatique" style={{ fontSize: '0.72rem' }}>
-                          {a.type_tarif || '—'}
+                        <span className="badge-matricule">
+                          #{a.id_voyage || "—"}
                         </span>
                       </td>
-                      <td style={{ textAlign: 'center' }}>{a.quantite || 0}</td>
-                      <td>
-                        {Number(a.montant_total) > 0
-                          ? <span className="montant-badge">{fmt(a.montant_total)} ms</span>
-                          : <span style={{ color: 'var(--green)', fontWeight: 600 }}>Gratuit</span>
-                        }
+                      <td style={{ fontSize: "0.87rem" }}>
+                        <span style={{ color: "var(--navy)", fontWeight: 500 }}>
+                          {a.point_depart || "—"}
+                        </span>
+                        <span
+                          style={{ color: "var(--gray-400)", margin: "0 4px" }}
+                        >
+                          →
+                        </span>
+                        <span>{a.point_arrivee || "—"}</span>
                       </td>
-                      <td style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', color: 'var(--gray-600)' }}>
+                      <td>
+                        <span
+                          className="badge-role informatique"
+                          style={{ fontSize: "0.72rem" }}
+                        >
+                          {a.type_tarif || "—"}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "center" }}>{a.quantite || 0}</td>
+                      <td>
+                        {Number(a.montant_total) > 0 ? (
+                          <span className="montant-badge">
+                            {fmt(a.montant_total)} ms
+                          </span>
+                        ) : (
+                          <span
+                            style={{ color: "var(--green)", fontWeight: 600 }}
+                          >
+                            Gratuit
+                          </span>
+                        )}
+                      </td>
+                      <td
+                        style={{
+                          fontSize: "0.82rem",
+                          whiteSpace: "nowrap",
+                          color: "var(--gray-600)",
+                        }}
+                      >
                         {fmtDate(a.date_heure)}
                       </td>
-                      <td><StatutBadge statut={a.statut} /></td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
-                          {a.statut === 'non_traite' && (
+                        <StatutBadge statut={a.statut} />
+                      </td>
+                      <td>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 6,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
+                        >
+                          {a.statut === "non_traite" && (
                             <>
                               <button
                                 className="btn"
-                                style={{ padding: '5px 12px', fontSize: '0.78rem' }}
+                                style={{
+                                  padding: "5px 12px",
+                                  fontSize: "0.78rem",
+                                }}
                                 onClick={() => setModalCorrect(a)}
                               >
                                 Corriger
                               </button>
                               <button
                                 className="action-btn edit"
-                                style={{ fontSize: '0.75rem' }}
+                                style={{ fontSize: "0.75rem" }}
                                 onClick={() => handleIgnorer(a.id)}
                               >
                                 Ignorer
                               </button>
                             </>
                           )}
-                          {a.statut === 'enregistre' && (
-                            <span style={{ fontSize: '0.78rem', color: 'var(--green)', fontWeight: 600 }}>
+                          {a.statut === "enregistre" && (
+                            <span
+                              style={{
+                                fontSize: "0.78rem",
+                                color: "var(--green)",
+                                fontWeight: 600,
+                              }}
+                            >
                               ✅ Enregistré
                             </span>
                           )}
-                          {a.statut === 'ignore' && (
+                          {a.statut === "ignore" && (
                             <button
                               className="action-btn edit"
-                              style={{ fontSize: '0.75rem' }}
+                              style={{ fontSize: "0.75rem" }}
                               onClick={() => setModalCorrect(a)}
                             >
                               Retraiter
@@ -1016,11 +1514,18 @@ export default function GestionAnomalies() {
               onPageChange={setCurrentPage}
             />
 
-            <div style={{
-              padding: '10px 16px', borderTop: '1px solid var(--gray-100)',
-              fontSize: '12px', color: 'var(--gray-400)', textAlign: 'center',
-            }}>
-              {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} sur {filtered.length} anomalie(s)
+            <div
+              style={{
+                padding: "10px 16px",
+                borderTop: "1px solid var(--gray-100)",
+                fontSize: "12px",
+                color: "var(--gray-400)",
+                textAlign: "center",
+              }}
+            >
+              {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+              {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} sur{" "}
+              {filtered.length} anomalie(s)
             </div>
           </>
         )}

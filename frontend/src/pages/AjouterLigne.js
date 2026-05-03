@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import axios from "axios";
 import "../styles/global.css";
 import Notification from "../components/Notification";
 
-const API = "http://localhost:5000/api";
+import axios from "../api/axios";
 const EMPTY_SEG = { point_a: "", point_b: "", prix_normal: "" };
 const EMPTY_FORM = {
   nom_ligne: "",
@@ -76,7 +75,7 @@ function SelectAgence({ value, onSelect }) {
 
   useEffect(() => {
     axios
-      .get(`${API}/agences`)
+      .get(`/agences`)
       .then((res) => setAgences(res.data.agences || []))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -539,13 +538,11 @@ export default function AjouterLigne() {
         retour: "Ajoutez d'abord des segments aller.",
       }));
     setRetour(
-      [...aller]
-        .reverse()
-        .map((s) => ({
-          point_a: s.point_b,
-          point_b: s.point_a,
-          prix_normal: s.prix_normal,
-        })),
+      [...aller].reverse().map((s) => ({
+        point_a: s.point_b,
+        point_b: s.point_a,
+        prix_normal: s.prix_normal,
+      })),
     );
     setArretsRetour([...arretsAller].reverse());
     setErrors((e) => ({ ...e, retour: "", arretsRetour: "" }));
@@ -586,7 +583,7 @@ export default function AjouterLigne() {
     // ✅ Plus besoin de bloquer — le backend reconstruit aussi en fallback
     setLoading(true);
     try {
-      const r1 = await axios.post(`${API}/ajouter_ligne`, {
+      const r1 = await axios.post(`/ajouter_ligne`, {
         ...form,
         segments: aller,
         arrets_ordre: arretsAllerFinal,
@@ -598,7 +595,7 @@ export default function AjouterLigne() {
         });
 
       if (retour.length) {
-        const r2 = await axios.post(`${API}/ajouter_ligne`, {
+        const r2 = await axios.post(`/ajouter_ligne`, {
           nom_ligne: nomRetour(form.nom_ligne),
           point_depart: form.point_arrive,
           point_arrive: form.point_depart,
