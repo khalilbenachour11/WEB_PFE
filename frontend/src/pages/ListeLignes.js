@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import axios from "../api/axios";
+import axios from '../api/axios';
 import { useNavigate } from "react-router-dom";
 import Pagination from "../components/Pagination";
 import Notification from "../components/Notification";
@@ -92,10 +92,7 @@ function OrdreArrets({ arrets, setArrets, pointsSuggestions, error }) {
   return (
     <div>
       {error && <div className="alert alert-error">⚠ {error}</div>}
-      <div
-        className="segment-add-grid"
-        style={{ gridTemplateColumns: "1fr auto" }}
-      >
+      <div className="segment-add-grid" style={{ gridTemplateColumns: "1fr auto" }}>
         <div className="form-group">
           <label className="form-label">Ajouter un arrêt</label>
           <AutoComplete
@@ -121,29 +118,16 @@ function OrdreArrets({ arrets, setArrets, pointsSuggestions, error }) {
           <tbody>
             {arrets.map((a, i) => (
               <tr key={i}>
-                <td>
-                  <span className="badge-matricule">{i + 1}</span>
-                </td>
+                <td><span className="badge-matricule">{i + 1}</span></td>
                 <td>{a}</td>
                 <td>
-                  <button
-                    className="action-btn edit"
-                    onClick={() => monter(i)}
-                    disabled={i === 0}
-                  >
+                  <button className="action-btn edit" onClick={() => monter(i)} disabled={i === 0}>
                     Haut ▲
                   </button>
-                  <button
-                    className="action-btn edit"
-                    onClick={() => descendre(i)}
-                    disabled={i === arrets.length - 1}
-                  >
+                  <button className="action-btn edit" onClick={() => descendre(i)} disabled={i === arrets.length - 1}>
                     ▼ Bas
                   </button>
-                  <button
-                    className="action-btn delete"
-                    onClick={() => supprimer(i)}
-                  >
+                  <button className="action-btn delete" onClick={() => supprimer(i)}>
                     Supprimer
                   </button>
                 </td>
@@ -157,38 +141,14 @@ function OrdreArrets({ arrets, setArrets, pointsSuggestions, error }) {
         </div>
       )}
       {arrets.length > 1 && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "4px",
-            marginTop: "12px",
-            padding: "10px",
-            background: "var(--bg-secondary,#f5f5f5)",
-            borderRadius: "8px",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px", marginTop: "12px", padding: "10px", background: "var(--bg-secondary,#f5f5f5)", borderRadius: "8px" }}>
           {arrets.map((a, i) => (
             <React.Fragment key={i}>
-              <span
-                style={{
-                  padding: "4px 10px",
-                  background: "var(--primary,#1a73e8)",
-                  color: "#fff",
-                  borderRadius: "20px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                }}
-              >
+              <span style={{ padding: "4px 10px", background: "var(--primary,#1a73e8)", color: "#fff", borderRadius: "20px", fontSize: "12px", fontWeight: 600 }}>
                 {a}
               </span>
               {i < arrets.length - 1 && (
-                <span
-                  style={{ color: "var(--text-muted,#999)", fontSize: "16px" }}
-                >
-                  →
-                </span>
+                <span style={{ color: "var(--text-muted,#999)", fontSize: "16px" }}>→</span>
               )}
             </React.Fragment>
           ))}
@@ -203,25 +163,11 @@ function TableauSegments({ segments, points, onUpdate, onDelete }) {
   const [editIndex, setEditIndex] = useState(-1);
   const [editSeg, setEditSeg] = useState(EMPTY_SEG);
 
-  const startEdit = (i) => {
-    setEditIndex(i);
-    setEditSeg({ ...segments[i] });
-  };
-  const cancelEdit = () => {
-    setEditIndex(-1);
-    setEditSeg(EMPTY_SEG);
-  };
+  const startEdit = (i) => { setEditIndex(i); setEditSeg({ ...segments[i] }); };
+  const cancelEdit = () => { setEditIndex(-1); setEditSeg(EMPTY_SEG); };
   const saveEdit = () => {
-    if (
-      !editSeg.point_a ||
-      !editSeg.point_b ||
-      editSeg.point_a === editSeg.point_b
-    )
-      return;
-    onUpdate(editIndex, {
-      ...editSeg,
-      prix_normal: parseInt(editSeg.prix_normal) || 0,
-    });
+    if (!editSeg.point_a || !editSeg.point_b || editSeg.point_a === editSeg.point_b) return;
+    onUpdate(editIndex, { ...editSeg, prix_normal: parseInt(editSeg.prix_normal) || 0 });
     cancelEdit();
   };
 
@@ -232,13 +178,8 @@ function TableauSegments({ segments, points, onUpdate, onDelete }) {
     <table className="data-table">
       <thead>
         <tr>
-          <th>#</th>
-          <th>Point A</th>
-          <th>Point B</th>
-          <th>Normal (m)</th>
-          <th>50%</th>
-          <th>75%</th>
-          <th>Actions</th>
+          <th>#</th><th>Point A</th><th>Point B</th>
+          <th>Normal (m)</th><th>50%</th><th>75%</th><th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -247,50 +188,24 @@ function TableauSegments({ segments, points, onUpdate, onDelete }) {
           const seg = isEdit ? editSeg : s;
           return (
             <tr key={i}>
+              <td><span className="badge-matricule">{i + 1}</span></td>
               <td>
-                <span className="badge-matricule">{i + 1}</span>
+                {isEdit ? (
+                  <AutoComplete value={editSeg.point_a} suggestions={points} placeholder="Point A"
+                    onChange={(v) => setEditSeg((e) => ({ ...e, point_a: v }))} />
+                ) : s.point_a}
               </td>
               <td>
                 {isEdit ? (
-                  <AutoComplete
-                    value={editSeg.point_a}
-                    suggestions={points}
-                    placeholder="Point A"
-                    onChange={(v) => setEditSeg((e) => ({ ...e, point_a: v }))}
-                  />
-                ) : (
-                  s.point_a
-                )}
+                  <AutoComplete value={editSeg.point_b} suggestions={points} placeholder="Point B"
+                    onChange={(v) => setEditSeg((e) => ({ ...e, point_b: v }))} />
+                ) : s.point_b}
               </td>
               <td>
-                {isEdit ? (
-                  <AutoComplete
-                    value={editSeg.point_b}
-                    suggestions={points}
-                    placeholder="Point B"
-                    onChange={(v) => setEditSeg((e) => ({ ...e, point_b: v }))}
-                  />
-                ) : (
-                  s.point_b
-                )}
-              </td>
-              <td>
-                <input
-                  type="number"
-                  min="0"
-                  step="100"
-                  className="prix-input"
-                  value={seg.prix_normal}
-                  onChange={(e) =>
-                    isEdit
-                      ? setEditSeg((ev) => ({
-                          ...ev,
-                          prix_normal: e.target.value,
-                        }))
-                      : onUpdate(i, {
-                          ...s,
-                          prix_normal: parseInt(e.target.value) || 0,
-                        })
+                <input type="number" min="0" step="100" className="prix-input" value={seg.prix_normal}
+                  onChange={(e) => isEdit
+                    ? setEditSeg((ev) => ({ ...ev, prix_normal: e.target.value }))
+                    : onUpdate(i, { ...s, prix_normal: parseInt(e.target.value) || 0 })
                   }
                 />
               </td>
@@ -299,27 +214,13 @@ function TableauSegments({ segments, points, onUpdate, onDelete }) {
               <td>
                 {isEdit ? (
                   <>
-                    <button className="action-btn edit" onClick={saveEdit}>
-                      ✓ Sauver
-                    </button>
-                    <button className="action-btn delete" onClick={cancelEdit}>
-                      ✕
-                    </button>
+                    <button className="action-btn edit" onClick={saveEdit}>✓ Sauver</button>
+                    <button className="action-btn delete" onClick={cancelEdit}>✕</button>
                   </>
                 ) : (
                   <>
-                    <button
-                      className="action-btn edit"
-                      onClick={() => startEdit(i)}
-                    >
-                      modifier
-                    </button>
-                    <button
-                      className="action-btn delete"
-                      onClick={() => onDelete(i)}
-                    >
-                      supprimer
-                    </button>
+                    <button className="action-btn edit" onClick={() => startEdit(i)}>modifier</button>
+                    <button className="action-btn delete" onClick={() => onDelete(i)}>supprimer</button>
                   </>
                 )}
               </td>
@@ -345,40 +246,23 @@ function FormulaireSegment({ newSeg, setNewSeg, points, onAjouter, error }) {
       <div className="segment-add-grid">
         <div className="form-group">
           <label className="form-label">Point A (départ)</label>
-          <AutoComplete
-            value={newSeg.point_a}
-            placeholder="Ex: Bizerte"
+          <AutoComplete value={newSeg.point_a} placeholder="Ex: Bizerte"
             onChange={(v) => setNewSeg((s) => ({ ...s, point_a: v }))}
-            suggestions={points}
-            inputRef={pointARef}
-          />
+            suggestions={points} inputRef={pointARef} />
         </div>
         <div className="form-group">
           <label className="form-label">Point B (arrivée)</label>
-          <AutoComplete
-            value={newSeg.point_b}
-            placeholder="Ex: Mateur"
+          <AutoComplete value={newSeg.point_b} placeholder="Ex: Mateur"
             onChange={(v) => setNewSeg((s) => ({ ...s, point_b: v }))}
-            suggestions={points}
-          />
+            suggestions={points} />
         </div>
         <div className="form-group">
           <label className="form-label">Prix Normal (millimes)</label>
-          <input
-            className="form-input"
-            placeholder="Ex: 1000"
-            type="number"
-            min="0"
-            step="100"
+          <input className="form-input" placeholder="Ex: 1000" type="number" min="0" step="100"
             value={newSeg.prix_normal}
-            onChange={(e) =>
-              setNewSeg((s) => ({ ...s, prix_normal: e.target.value }))
-            }
-          />
+            onChange={(e) => setNewSeg((s) => ({ ...s, prix_normal: e.target.value }))} />
         </div>
-        <button className="btn segment-add-btn" onClick={handleAjouter}>
-          ➕ Ajouter
-        </button>
+        <button className="btn segment-add-btn" onClick={handleAjouter}>➕ Ajouter</button>
       </div>
     </>
   );
@@ -387,12 +271,9 @@ function FormulaireSegment({ newSeg, setNewSeg, points, onAjouter, error }) {
 /* ──────────────────────────── Helpers ──────────────────────────────── */
 const validerSegment = (seg, list, setErr) => {
   const { point_a, point_b, prix_normal } = seg;
-  if (!point_a || !point_b || !prix_normal)
-    return setErr("Veuillez remplir tous les champs.");
-  if (point_a === point_b)
-    return setErr("Point A et Point B doivent être différents.");
-  if (list.find((s) => s.point_a === point_a && s.point_b === point_b))
-    return setErr("Ce segment existe déjà.");
+  if (!point_a || !point_b || !prix_normal) return setErr("Veuillez remplir tous les champs.");
+  if (point_a === point_b) return setErr("Point A et Point B doivent être différents.");
+  if (list.find((s) => s.point_a === point_a && s.point_b === point_b)) return setErr("Ce segment existe déjà.");
   return true;
 };
 
@@ -403,25 +284,16 @@ const autoDetectArrets = (segments) => {
   const seen = new Set();
   const order = [];
   for (const s of segments) {
-    if (!seen.has(s.point_a)) {
-      seen.add(s.point_a);
-      order.push(s.point_a);
-    }
-    if (!seen.has(s.point_b)) {
-      seen.add(s.point_b);
-      order.push(s.point_b);
-    }
+    if (!seen.has(s.point_a)) { seen.add(s.point_a); order.push(s.point_a); }
+    if (!seen.has(s.point_b)) { seen.add(s.point_b); order.push(s.point_b); }
   }
   return order;
 };
 
 const validateArretsForSubmit = (arrets, segments, label) => {
-  if (arrets.length < 2)
-    return `${label}: Définissez au moins 2 arrêts dans l'ordre correct.`;
+  if (arrets.length < 2) return `${label}: Définissez au moins 2 arrêts dans l'ordre correct.`;
   const arretSet = new Set(arrets.map((a) => a.trim().toLowerCase()));
-  const allPoints = [
-    ...new Set(segments.flatMap((s) => [s.point_a, s.point_b])),
-  ];
+  const allPoints = [...new Set(segments.flatMap((s) => [s.point_a, s.point_b]))];
   for (const point of allPoints) {
     if (!arretSet.has(point.trim().toLowerCase()))
       return `${label}: L'arrêt "${point}" est présent dans les tarifs mais absent de la liste d'arrêts.`;
@@ -444,35 +316,25 @@ function ModalModifierLigne({ ligne, onClose, onSaved, onNotify }) {
 
   useEffect(() => {
     const id = ligne.id_ligne;
-    axios
-      .get(`/tarifs_ligne/${id}`)
+    axios.get(`/tarifs_ligne/${id}`)
       .then((res) => {
         if (res.data.success)
-          setSegments(
-            res.data.tarifs.map((t) => ({
-              point_a: t.point_a,
-              point_b: t.point_b,
-              prix_normal: t.prix_normal,
-            })),
-          );
+          setSegments(res.data.tarifs.map((t) => ({
+            point_a: t.point_a,
+            point_b: t.point_b,
+            prix_normal: t.prix_normal,
+          })));
       })
       .catch(console.error);
 
-    axios
-      .get(`/segments_ligne/${id}`)
+    axios.get(`/segments_ligne/${id}`)
       .then((res) => {
         if (res.data.success && res.data.segments.length > 0) {
           const seen = new Set();
           const order = [];
           for (const seg of res.data.segments) {
-            if (!seen.has(seg.point_depart)) {
-              seen.add(seg.point_depart);
-              order.push(seg.point_depart);
-            }
-            if (!seen.has(seg.point_arrivee)) {
-              seen.add(seg.point_arrivee);
-              order.push(seg.point_arrivee);
-            }
+            if (!seen.has(seg.point_depart)) { seen.add(seg.point_depart); order.push(seg.point_depart); }
+            if (!seen.has(seg.point_arrivee)) { seen.add(seg.point_arrivee); order.push(seg.point_arrivee); }
           }
           setArrets(order);
         }
@@ -492,24 +354,15 @@ function ModalModifierLigne({ ligne, onClose, onSaved, onNotify }) {
     const setErr = (msg) => setErrors((e) => ({ ...e, segment: msg }));
     if (!validerSegment(newSeg, segments, setErr)) return;
     setErr("");
-    setSegments((prev) => [
-      ...prev,
-      { ...newSeg, prix_normal: parseInt(newSeg.prix_normal) },
-    ]);
+    setSegments((prev) => [...prev, { ...newSeg, prix_normal: parseInt(newSeg.prix_normal) }]);
     setNewSeg(EMPTY_SEG);
   };
 
   const handleSubmit = async () => {
     if (!nomLigne || !pointDepart || !pointArrive)
-      return setInlineMsg({
-        text: "Veuillez remplir tous les champs obligatoires.",
-        type: "error",
-      });
+      return setInlineMsg({ text: "Veuillez remplir tous les champs obligatoires.", type: "error" });
     if (!segments.length)
-      return setInlineMsg({
-        text: "Ajoutez au moins un segment.",
-        type: "error",
-      });
+      return setInlineMsg({ text: "Ajoutez au moins un segment.", type: "error" });
     const errArrets = validateArretsForSubmit(arrets, segments, "Arrêts");
     if (errArrets) return setInlineMsg({ text: errArrets, type: "error" });
 
@@ -523,16 +376,10 @@ function ModalModifierLigne({ ligne, onClose, onSaved, onNotify }) {
         arrets_ordre: arrets,
       });
       if (res.data.success) {
-        onNotify({
-          text: `Ligne "${nomLigne}" modifiée avec succès !`,
-          type: "success",
-        });
+        onNotify({ text: `Ligne "${nomLigne}" modifiée avec succès !`, type: "success" });
         setTimeout(() => onSaved(), 300);
       } else {
-        setInlineMsg({
-          text: res.data.message || "Erreur lors de la modification.",
-          type: "error",
-        });
+        setInlineMsg({ text: res.data.message || "Erreur lors de la modification.", type: "error" });
       }
     } catch {
       setInlineMsg({ text: "Erreur de connexion au serveur.", type: "error" });
@@ -542,31 +389,17 @@ function ModalModifierLigne({ ligne, onClose, onSaved, onNotify }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-content"
-        style={{
-          maxWidth: 860,
-          width: "95vw",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="modal-content"
+        style={{ maxWidth: 860, width: "95vw", maxHeight: "90vh", overflowY: "auto" }}
+        onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">
-            {" "}
-            Modifier la ligne — {ligne.nom_ligne}
-          </h2>
-          <button className="modal-close" onClick={onClose}>
-            ✕
-          </button>
+          <h2 className="modal-title">Modifier la ligne — {ligne.nom_ligne}</h2>
+          <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
         {inlineMsg.text && (
-          <div
-            className={`alert ${inlineMsg.type === "success" ? "alert-success" : "alert-error"}`}
-            style={{ margin: "0 0 16px" }}
-          >
+          <div className={`alert ${inlineMsg.type === "success" ? "alert-success" : "alert-error"}`}
+            style={{ margin: "0 0 16px" }}>
             {inlineMsg.type === "success" ? "✓" : "⚠"} {inlineMsg.text}
           </div>
         )}
@@ -575,28 +408,16 @@ function ModalModifierLigne({ ligne, onClose, onSaved, onNotify }) {
           <div className="form-section-title">Informations de la ligne</div>
           <div className="form-group">
             <label className="form-label">Nom de la ligne *</label>
-            <input
-              className="form-input"
-              value={nomLigne}
-              onChange={(e) => setNomLigne(e.target.value)}
-            />
+            <input className="form-input" value={nomLigne} onChange={(e) => setNomLigne(e.target.value)} />
           </div>
           <div className="ligne-grid-2">
             <div className="form-group">
               <label className="form-label">Point de départ *</label>
-              <input
-                className="form-input"
-                value={pointDepart}
-                onChange={(e) => setPointDepart(e.target.value)}
-              />
+              <input className="form-input" value={pointDepart} onChange={(e) => setPointDepart(e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label">Point d'arrivée *</label>
-              <input
-                className="form-input"
-                value={pointArrive}
-                onChange={(e) => setPointArrive(e.target.value)}
-              />
+              <input className="form-input" value={pointArrive} onChange={(e) => setPointArrive(e.target.value)} />
             </div>
           </div>
         </div>
@@ -604,70 +425,29 @@ function ModalModifierLigne({ ligne, onClose, onSaved, onNotify }) {
         <div style={{ marginBottom: 20 }}>
           <div className="form-section-title">
             Segments — Tarifs
-            <span className="segment-count">
-              {" "}
-              ({segments.length} segment{segments.length !== 1 ? "s" : ""})
-            </span>
+            <span className="segment-count"> ({segments.length} segment{segments.length !== 1 ? "s" : ""})</span>
           </div>
-          <FormulaireSegment
-            newSeg={newSeg}
-            setNewSeg={setNewSeg}
-            points={points}
-            error={errors.segment}
-            onAjouter={ajouterSegment}
-          />
-          <TableauSegments
-            segments={segments}
-            points={points}
+          <FormulaireSegment newSeg={newSeg} setNewSeg={setNewSeg} points={points}
+            error={errors.segment} onAjouter={ajouterSegment} />
+          <TableauSegments segments={segments} points={points}
             onUpdate={(i, seg) => updateList(setSegments, i, seg)}
-            onDelete={(i) =>
-              setSegments((prev) => prev.filter((_, j) => j !== i))
-            }
-          />
+            onDelete={(i) => setSegments((prev) => prev.filter((_, j) => j !== i))} />
         </div>
 
         <div style={{ marginBottom: 20 }}>
           <div className="form-section-title">
             Ordre des arrêts
-            <span className="segment-count">
-              {" "}
-              ({arrets.length} arrêt{arrets.length !== 1 ? "s" : ""})
-            </span>
+            <span className="segment-count"> ({arrets.length} arrêt{arrets.length !== 1 ? "s" : ""})</span>
           </div>
-          <p
-            style={{
-              fontSize: "13px",
-              color: "var(--text-muted,#888)",
-              marginBottom: "12px",
-            }}
-          >
-            Définissez l'ordre exact des arrêts. C'est cet ordre qui sera
-            utilisé pour ouvrir/clôturer les segments lors du voyage.
+          <p style={{ fontSize: "13px", color: "var(--text-muted,#888)", marginBottom: "12px" }}>
+            Définissez l'ordre exact des arrêts. C'est cet ordre qui sera utilisé pour ouvrir/clôturer les segments lors du voyage.
           </p>
-          <OrdreArrets
-            arrets={arrets}
-            setArrets={setArrets}
-            pointsSuggestions={points}
-            error={errors.arrets}
-          />
+          <OrdreArrets arrets={arrets} setArrets={setArrets}
+            pointsSuggestions={points} error={errors.arrets} />
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 12,
-            paddingTop: 8,
-            borderTop: "1px solid var(--border,#e0e0e0)",
-          }}
-        >
-          <button
-            className="btn btn-secondary"
-            onClick={onClose}
-            disabled={loading}
-          >
-            Annuler
-          </button>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, paddingTop: 8, borderTop: "1px solid var(--border,#e0e0e0)" }}>
+          <button className="btn btn-secondary" onClick={onClose} disabled={loading}>Annuler</button>
           <button className="btn" onClick={handleSubmit} disabled={loading}>
             {loading ? "Enregistrement..." : "✓ Enregistrer les modifications"}
           </button>
@@ -681,49 +461,24 @@ function ModalModifierLigne({ ligne, onClose, onSaved, onNotify }) {
 function ConfirmDeleteModal({ ligne, onConfirm, onCancel, loading }) {
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div
-        className="modal-content"
-        style={{ maxWidth: 420, width: "90vw" }}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="modal-content" style={{ maxWidth: 420, width: "90vw" }}
+        onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title"> Supprimer la ligne</h2>
-          <button className="modal-close" onClick={onCancel}>
-            ✕
-          </button>
+          <h2 className="modal-title">Supprimer la ligne</h2>
+          <button className="modal-close" onClick={onCancel}>✕</button>
         </div>
-        <p
-          style={{
-            margin: "16px 0",
-            fontSize: "14px",
-            color: "var(--color-text-primary)",
-          }}
-        >
-          Êtes-vous sûr de vouloir supprimer la ligne{" "}
-          <strong>{ligne.nom_ligne}</strong> ?<br />
+        <p style={{ margin: "16px 0", fontSize: "14px", color: "var(--color-text-primary)" }}>
+          Êtes-vous sûr de vouloir supprimer la ligne <strong>{ligne.nom_ligne}</strong> ?<br />
           <span style={{ color: "var(--red,#e53935)", fontSize: "13px" }}>
-            ⚠ Cette action est irréversible. Tous les segments et arrêts
-            associés seront supprimés.
+            ⚠ Cette action est irréversible. Tous les segments et arrêts associés seront supprimés.
           </span>
         </p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <button
-            className="btn btn-secondary"
-            onClick={onCancel}
-            disabled={loading}
-          >
-            Annuler
-          </button>
-          <button
-            className="btn"
-            style={{
-              background: "var(--red,#e53935)",
-              borderColor: "var(--red,#e53935)",
-            }}
-            onClick={onConfirm}
-            disabled={loading}
-          >
-            {loading ? "Suppression..." : " Supprimer"}
+          <button className="btn btn-secondary" onClick={onCancel} disabled={loading}>Annuler</button>
+          <button className="btn"
+            style={{ background: "var(--red,#e53935)", borderColor: "var(--red,#e53935)" }}
+            onClick={onConfirm} disabled={loading}>
+            {loading ? "Suppression..." : "Supprimer"}
           </button>
         </div>
       </div>
@@ -746,16 +501,13 @@ export default function ListeLignes() {
 
   const fetchLignes = useCallback(() => {
     setLoading(true);
-    axios
-      .get(`/lignes_avec_segments`)
+    axios.get('/lignes_avec_segments')
       .then((res) => setLignes(res.data))
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    fetchLignes();
-  }, [fetchLignes]);
+  useEffect(() => { fetchLignes(); }, [fetchLignes]);
 
   const toggle = (id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
@@ -765,9 +517,7 @@ export default function ListeLignes() {
     ),
   );
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
+  useEffect(() => { setCurrentPage(1); }, [search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -779,22 +529,13 @@ export default function ListeLignes() {
     try {
       const res = await axios.delete(`/lignes/${ligneASuppr.id_ligne}`);
       if (res.data.success) {
-        setNotification({
-          text: `Ligne "${ligneASuppr.nom_ligne}" supprimée avec succès.`,
-          type: "success",
-        });
+        setNotification({ text: `Ligne "${ligneASuppr.nom_ligne}" supprimée avec succès.`, type: "success" });
         fetchLignes();
       } else {
-        setNotification({
-          text: res.data.message || "Erreur lors de la suppression.",
-          type: "error",
-        });
+        setNotification({ text: res.data.message || "Erreur lors de la suppression.", type: "error" });
       }
     } catch {
-      setNotification({
-        text: "Erreur de connexion au serveur.",
-        type: "error",
-      });
+      setNotification({ text: "Erreur de connexion au serveur.", type: "error" });
     }
     setDeleteLoading(false);
     setLigneASuppr(null);
@@ -802,142 +543,79 @@ export default function ListeLignes() {
 
   return (
     <div>
-      <Notification
-        message={notification}
-        onDone={() => setNotification({ text: "", type: "" })}
-      />
+      <Notification message={notification} onDone={() => setNotification({ text: "", type: "" })} />
 
-      <div className="breadcrumb">
-        Accueil / <span>Lignes de transport</span>
-      </div>
+      <div className="breadcrumb">Accueil / <span>Lignes de transport</span></div>
 
       <div className="page-header">
         <div>
           <h1 className="page-title">Lignes de transport</h1>
-          <p className="page-subtitle">
-            Gestion des lignes et segments tarifaires
-          </p>
+          <p className="page-subtitle">Gestion des lignes et segments tarifaires</p>
         </div>
-        <button className="btn" onClick={() => navigate("/ajouter-ligne")}>
-          + Ajouter une ligne
-        </button>
+        <button className="btn" onClick={() => navigate("/ajouter-ligne")}>+ Ajouter une ligne</button>
       </div>
 
       <div className="card">
-        <input
-          className="search-input"
-          type="text"
+        <input className="search-input" type="text"
           placeholder="Rechercher par nom, départ ou arrivée..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+          value={search} onChange={(e) => setSearch(e.target.value)} />
 
-        <p
-          style={{
-            fontSize: "0.82rem",
-            color: "var(--gray-400)",
-            marginBottom: 16,
-          }}
-        >
-          {filtered.length} ligne{filtered.length !== 1 ? "s" : ""} trouvée
-          {filtered.length !== 1 ? "s" : ""}
+        <p style={{ fontSize: "0.82rem", color: "var(--gray-400)", marginBottom: 16 }}>
+          {filtered.length} ligne{filtered.length !== 1 ? "s" : ""} trouvée{filtered.length !== 1 ? "s" : ""}
         </p>
 
         {loading && (
-          <p
-            style={{
-              color: "var(--gray-400)",
-              textAlign: "center",
-              padding: 40,
-            }}
-          >
-            Chargement...
-          </p>
+          <p style={{ color: "var(--gray-400)", textAlign: "center", padding: 40 }}>Chargement...</p>
         )}
 
         {paginated.map((ligne) => (
           <div key={ligne.id_ligne} className="receveur-card">
-            <div
-              className={`receveur-header ${expanded[ligne.id_ligne] ? "expanded" : ""}`}
-              onClick={() => toggle(ligne.id_ligne)}
-            >
+            <div className={`receveur-header ${expanded[ligne.id_ligne] ? "expanded" : ""}`}
+              onClick={() => toggle(ligne.id_ligne)}>
               <div className="receveur-avatar" style={{ fontSize: "0.85rem" }}>
                 {ligne.nom_ligne.charAt(0)}
               </div>
               <div className="receveur-info">
                 <div className="receveur-nom">{ligne.nom_ligne}</div>
-                <div className="receveur-matricule">
-                  {ligne.point_depart} → {ligne.point_arrive}
-                </div>
+                <div className="receveur-matricule">{ligne.point_depart} → {ligne.point_arrive}</div>
               </div>
               <div className="receveur-badges">
                 <span className="badge-role informatique">
-                  {ligne.segments.length} segment
-                  {ligne.segments.length !== 1 ? "s" : ""}
+                  {ligne.segments.length} segment{ligne.segments.length !== 1 ? "s" : ""}
                 </span>
-                <button
-                  className="action-btn edit"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLigneAModifier(ligne);
-                  }}
-                >
+                <button className="action-btn edit"
+                  onClick={(e) => { e.stopPropagation(); setLigneAModifier(ligne); }}>
                   Modifier
                 </button>
-                <button
-                  className="action-btn delete"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLigneASuppr(ligne);
-                  }}
-                >
+                <button className="action-btn delete"
+                  onClick={(e) => { e.stopPropagation(); setLigneASuppr(ligne); }}>
                   Supprimer
                 </button>
               </div>
-              <span
-                className={`receveur-arrow ${expanded[ligne.id_ligne] ? "open" : ""}`}
-              >
-                ▼
-              </span>
+              <span className={`receveur-arrow ${expanded[ligne.id_ligne] ? "open" : ""}`}>▼</span>
             </div>
 
             {expanded[ligne.id_ligne] && (
               <div className="receveur-body">
                 {ligne.segments.length === 0 ? (
-                  <p className="receveur-empty">
-                    Aucun segment enregistré pour cette ligne.
-                  </p>
+                  <p className="receveur-empty">Aucun segment enregistré pour cette ligne.</p>
                 ) : (
                   <table className="data-table" style={{ marginTop: 8 }}>
                     <thead>
                       <tr>
-                        <th>#</th>
-                        <th>Départ</th>
-                        <th>Arrivée</th>
-                        <th>Prix Normal (DT)</th>
-                        <th>Réduit 50%</th>
-                        <th>Réduit 75%</th>
+                        <th>#</th><th>Départ</th><th>Arrivée</th>
+                        <th>Prix Normal (DT)</th><th>Réduit 50%</th><th>Réduit 75%</th>
                       </tr>
                     </thead>
                     <tbody>
                       {ligne.segments.map((seg, i) => (
                         <tr key={seg.id}>
-                          <td>
-                            <span className="badge-matricule">{i + 1}</span>
-                          </td>
+                          <td><span className="badge-matricule">{i + 1}</span></td>
                           <td>{seg.point_a}</td>
                           <td>{seg.point_b}</td>
-                          <td>
-                            <span className="montant-badge">
-                              {Number(seg.prix_normal).toFixed(3)}
-                            </span>
-                          </td>
-                          <td style={{ color: "var(--gold)", fontWeight: 600 }}>
-                            {Number(seg.prix_reduit_50).toFixed(3)}
-                          </td>
-                          <td style={{ color: "var(--red)", fontWeight: 600 }}>
-                            {Number(seg.prix_reduit_75).toFixed(3)}
-                          </td>
+                          <td><span className="montant-badge">{Number(seg.prix_normal).toFixed(3)}</span></td>
+                          <td style={{ color: "var(--gold)", fontWeight: 600 }}>{Number(seg.prix_reduit_50).toFixed(3)}</td>
+                          <td style={{ color: "var(--red)", fontWeight: 600 }}>{Number(seg.prix_reduit_75).toFixed(3)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -951,55 +629,32 @@ export default function ListeLignes() {
         {!loading && filtered.length === 0 && (
           <table className="data-table">
             <tbody>
-              <tr className="empty-row">
-                <td colSpan={6}>Aucune ligne trouvée.</td>
-              </tr>
+              <tr className="empty-row"><td colSpan={6}>Aucune ligne trouvée.</td></tr>
             </tbody>
           </table>
         )}
 
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-        />
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
         {filtered.length > 0 && (
-          <div
-            style={{
-              padding: "12px 16px",
-              borderTop: "1px solid var(--color-border-tertiary)",
-              fontSize: "12px",
-              color: "var(--color-text-secondary)",
-              textAlign: "center",
-            }}
-          >
-            {startIdx + 1}–
-            {Math.min(startIdx + ITEMS_PER_PAGE, filtered.length)} sur{" "}
-            {filtered.length} ligne{filtered.length !== 1 ? "s" : ""}
+          <div style={{ padding: "12px 16px", borderTop: "1px solid var(--color-border-tertiary)", fontSize: "12px", color: "var(--color-text-secondary)", textAlign: "center" }}>
+            {startIdx + 1}–{Math.min(startIdx + ITEMS_PER_PAGE, filtered.length)} sur {filtered.length} ligne{filtered.length !== 1 ? "s" : ""}
           </div>
         )}
       </div>
 
       {ligneAModifier && (
-        <ModalModifierLigne
-          ligne={ligneAModifier}
+        <ModalModifierLigne ligne={ligneAModifier}
           onClose={() => setLigneAModifier(null)}
           onNotify={setNotification}
-          onSaved={() => {
-            fetchLignes();
-            setLigneAModifier(null);
-          }}
-        />
+          onSaved={() => { fetchLignes(); setLigneAModifier(null); }} />
       )}
 
       {ligneASuppr && (
-        <ConfirmDeleteModal
-          ligne={ligneASuppr}
+        <ConfirmDeleteModal ligne={ligneASuppr}
           onConfirm={handleDelete}
           onCancel={() => setLigneASuppr(null)}
-          loading={deleteLoading}
-        />
+          loading={deleteLoading} />
       )}
     </div>
   );
