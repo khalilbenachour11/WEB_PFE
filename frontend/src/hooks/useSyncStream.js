@@ -1,8 +1,10 @@
 // useSyncStream.js
 import { useState, useEffect, useRef, useCallback } from "react";
+import API_URL from '../api/config';
 
 const MAX_BACKOFF_MS = 30_000;
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+
 
 export function useSyncStream() {
   const [agents, setAgents] = useState([]);

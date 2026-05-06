@@ -26,7 +26,7 @@ async function logHistorique(id_voyage, statut_avant, statut_apres) {
 
     await db.promise().query(
       `INSERT INTO billetterie.voyage_historique
-        (id_voyage, id_ligne, matricule_agent, statut_avant, statut_apres,  created_at)
+        (id_voyage, id_ligne, matricule_agent, statut_avant, statut_apres, created_at)
        VALUES (?, ?, ?, ?, ?, NOW())`,
       [id_voyage, id_ligne, matricule_agent, statut_avant, statut_apres],
     );
@@ -86,21 +86,28 @@ exports.ajouter = async (req, res) => {
   try {
     const doublon = await checkDoublon(id_ligne, matricule_agent);
 
-   if (doublon)
-  return res.json({
-    success: false,
-    message: `Vous avez déjà un voyage actif sur cette ligne`,
-  });
+    if (doublon)
+      return res.json({
+        success: false,
+        message: `Vous avez déjà un voyage actif sur cette ligne`,
+      });
+
+    // ── Récupérer code_agence de l'agent ──────────────────────────────────
+    const [agentRows] = await db.promise().query(
+      `SELECT code_agence FROM base_global.agent WHERE matricule_agent = ?`,
+      [matricule_agent]
+    );
+    const code_agence = agentRows[0]?.code_agence || null;
 
     const [result] = await db.promise().query(
-      `INSERT INTO billetterie.voyage (id_ligne, id_appareil, matricule_agent, date_heure, type, statut)
-       VALUES (?, ?, ?, ?, ?, 'actif')`,
-      [id_ligne, id_appareil, matricule_agent, dateHeure, type],
+      `INSERT INTO billetterie.voyage (id_ligne, id_appareil, matricule_agent, date_heure, type, statut, code_agence)
+       VALUES (?, ?, ?, ?, ?, 'actif', ?)`,
+      [id_ligne, id_appareil, matricule_agent, dateHeure, type, code_agence],
     );
     const id_voyage = result.insertId;
 
     // Log creation (trigger handles this, but log manually as fallback)
-    await logHistorique(id_voyage, null, "actif", "Création du voyage");
+    await logHistorique(id_voyage, null, "actif");
 
     const hasSegments = await insertSegmentsVoyage(id_voyage, id_ligne);
 
@@ -180,12 +187,7 @@ exports.reactiver = async (req, res) => {
       );
 
     // Log réactivation
-    await logHistorique(
-      id_voyage,
-      statutAvant,
-      "actif",
-      "Réactivation manuelle",
-    );
+    await logHistorique(id_voyage, statutAvant, "actif");
 
     res.json({ success: true, message: "Voyage réactivé avec succès" });
   } catch (err) {
@@ -193,7 +195,7 @@ exports.reactiver = async (req, res) => {
   }
 };
 
-// ─── NEW: cloture manuelle depuis le web (direction) ────────────────────────
+// ─── Clôture manuelle depuis le web (direction) ──────────────────────────────
 exports.cloturer = async (req, res) => {
   const { id_voyage } = req.params;
 
@@ -208,9 +210,6 @@ exports.cloturer = async (req, res) => {
     if (rows[0].statut === "cloture")
       return res.json({ success: false, message: "Déjà clôturé" });
 
-    const statutAvant = rows[0].statut;
-
-    // Une seule requête : date_cloture et historique seront synchronisés via le trigger
     await db.promise().query(
       `UPDATE billetterie.voyage 
        SET statut = 'cloture', date_cloture = NOW() 
