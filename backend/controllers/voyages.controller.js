@@ -41,7 +41,7 @@ exports.getVoyagesReceveurs = (req, res) => {
             v.id_voyage, v.id_ligne, v.date_heure, v.statut, v.type, v.date_cloture
      FROM base_global.agent ag
      LEFT JOIN billetterie.voyage v ON ag.matricule_agent = v.matricule_agent
-     WHERE ag.role = 'receveur'
+     WHERE ag.role = 'agent'
      ORDER BY ag.matricule_agent, v.date_heure DESC`,
     (err, results) => {
       if (err) return res.json({ success: false, message: err.message });

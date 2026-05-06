@@ -221,7 +221,7 @@ export default function GestionMdp() {
 
   const filtered = agents.filter(
     (a) =>
-      a.role === "receveur" &&
+      a.role === "agent" &&
       (String(a.matricule_agent).includes(search) ||
         a.nom.toLowerCase().includes(search.toLowerCase()) ||
         a.prenom.toLowerCase().includes(search.toLowerCase())),
