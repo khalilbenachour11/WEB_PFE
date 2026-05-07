@@ -2,10 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/global.css";
 import Notification from "../components/Notification";
-
-// ══════════════════════════════════════════════════════════════════════════════
-// CONSTANTES
-// ══════════════════════════════════════════════════════════════════════════════
+import Pagination from "../components/Pagination";
 
 import axios from "../api/axios";
 const ITEMS_PER_PAGE = 10;
@@ -90,115 +87,6 @@ function TypeSelector({ value, onChange }) {
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function Pagination({ currentPage, totalPages, onPageChange }) {
-  if (totalPages <= 1) return null;
-
-  const pages = [];
-  if (totalPages <= 9) {
-    for (let i = 1; i <= totalPages; i++) pages.push(i);
-  } else {
-    pages.push(1);
-    if (currentPage > 5) pages.push("...");
-    for (
-      let i = Math.max(2, currentPage - 3);
-      i <= Math.min(totalPages - 1, currentPage + 3);
-      i++
-    )
-      pages.push(i);
-    if (currentPage < totalPages - 4) pages.push("...");
-    pages.push(totalPages);
-  }
-
-  const btnBase = {
-    borderRadius: 4,
-    border: "1px solid var(--color-border-tertiary)",
-    cursor: "pointer",
-    fontSize: 13,
-    fontWeight: 500,
-  };
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        padding: 16,
-        flexWrap: "wrap",
-      }}
-    >
-      <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        style={{
-          ...btnBase,
-          padding: "8px 12px",
-          background:
-            currentPage === 1
-              ? "var(--color-background-secondary)"
-              : "var(--color-background-primary)",
-          cursor: currentPage === 1 ? "not-allowed" : "pointer",
-        }}
-      >
-        ← Précédent
-      </button>
-
-      {pages.map((page, idx) =>
-        page === "..." ? (
-          <span
-            key={`dots-${idx}`}
-            style={{ padding: "0 4px", color: "var(--color-text-secondary)" }}
-          >
-            ...
-          </span>
-        ) : (
-          <button
-            key={page}
-            onClick={() => onPageChange(page)}
-            disabled={page === currentPage}
-            style={{
-              ...btnBase,
-              width: 36,
-              height: 36,
-              border:
-                page === currentPage
-                  ? "2px solid #1a73e8"
-                  : "1px solid var(--color-border-tertiary)",
-              background:
-                page === currentPage
-                  ? "#e8f0fe"
-                  : "var(--color-background-primary)",
-              color:
-                page === currentPage ? "#1a73e8" : "var(--color-text-primary)",
-              cursor: page === currentPage ? "default" : "pointer",
-              fontWeight: page === currentPage ? 600 : 500,
-            }}
-          >
-            {page}
-          </button>
-        ),
-      )}
-
-      <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        style={{
-          ...btnBase,
-          padding: "8px 12px",
-          background:
-            currentPage === totalPages
-              ? "var(--color-background-secondary)"
-              : "var(--color-background-primary)",
-          cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-        }}
-      >
-        Suivant →
-      </button>
     </div>
   );
 }
@@ -374,7 +262,6 @@ function ModalWrapper({ icon, title, onClose, children, footer }) {
   );
 }
 
-// ── voyagesReceveur = voyages du receveur courant uniquement (passé depuis ReceveurCard)
 function ModalAjouterVoyage({
   matricule,
   appareil,
@@ -416,7 +303,6 @@ function ModalAjouterVoyage({
       return setError("La date doit être dans le futur.");
     if (!appareil) return setError("Aucun appareil actif pour ce receveur.");
 
-    // ✅ Vérifie doublon uniquement sur les voyages de CE receveur
     if (
       voyagesReceveur.find(
         (v) => v.id_ligne === parseInt(form.id_ligne) && v.statut !== "cloture",
@@ -463,10 +349,7 @@ function ModalAjouterVoyage({
       <div className="modal-message">
         Receveur : <strong>{matricule}</strong>
         {appareil ? (
-          <>
-            {" "}
-            — Appareil : <strong>N° {appareil}</strong>
-          </>
+          <> — Appareil : <strong>N° {appareil}</strong></>
         ) : (
           <span className="text-error"> — Aucun appareil actif</span>
         )}
@@ -787,22 +670,13 @@ function ReceveurCard({ receveur, lignesMap, onVoyageAdded, onNotify }) {
           <div
             style={{ display: "flex", gap: 8, marginBottom: 16, marginTop: 8 }}
           >
-            <button
-              style={tabStyle("tous")}
-              onClick={() => setActiveTab("tous")}
-            >
+            <button style={tabStyle("tous")} onClick={() => setActiveTab("tous")}>
               Tous ({voyages.length})
             </button>
-            <button
-              style={tabStyle("actifs")}
-              onClick={() => setActiveTab("actifs")}
-            >
+            <button style={tabStyle("actifs")} onClick={() => setActiveTab("actifs")}>
               🟡 Actifs ({nbActifs})
             </button>
-            <button
-              style={tabStyle("cloture")}
-              onClick={() => setActiveTab("cloture")}
-            >
+            <button style={tabStyle("cloture")} onClick={() => setActiveTab("cloture")}>
               ⬛ Clôturés ({nbCloture})
             </button>
           </div>
@@ -864,13 +738,7 @@ function ReceveurCard({ receveur, lignesMap, onVoyageAdded, onNotify }) {
               ➕ Ajouter un voyage
             </button>
             {!appareil && (
-              <span
-                style={{
-                  fontSize: "0.78rem",
-                  color: "var(--red)",
-                  fontWeight: 500,
-                }}
-              >
+              <span style={{ fontSize: "0.78rem", color: "var(--red)", fontWeight: 500 }}>
                 ⚠ Aucun appareil actif — attribution requise
               </span>
             )}
@@ -893,6 +761,7 @@ export default function ListeVoyages() {
   const [filterLigne, setFilterLigne] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [message, setMessage] = useState({ text: "", type: "" });
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = useCallback(async () => {
     try {
@@ -972,6 +841,16 @@ export default function ListeVoyages() {
     return matchSearch && matchLigne && matchDate;
   });
 
+  // ── Pagination ──────────────────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginated = filtered.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+  // Réinitialiser la page quand les filtres changent
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterLigne, filterDate]);
+
   return (
     <div>
       <Notification
@@ -1027,15 +906,32 @@ export default function ListeVoyages() {
           <p className="text-center">Aucun receveur trouvé</p>
         </div>
       ) : (
-        filtered.map((r) => (
-          <ReceveurCard
-            key={r.matricule_agent}
-            receveur={r}
-            lignesMap={lignesMap}
-            onNotify={setMessage}
-            onVoyageAdded={handleVoyageAdded}
+        <>
+          {paginated.map((r) => (
+            <ReceveurCard
+              key={r.matricule_agent}
+              receveur={r}
+              lignesMap={lignesMap}
+              onNotify={setMessage}
+              onVoyageAdded={handleVoyageAdded}
+            />
+          ))}
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
           />
-        ))
+
+          <div style={{
+            padding: "12px 16px",
+            fontSize: "12px",
+            color: "var(--color-text-secondary)",
+            textAlign: "center",
+          }}>
+            {startIdx + 1}–{Math.min(startIdx + ITEMS_PER_PAGE, filtered.length)} sur {filtered.length} receveur(s)
+          </div>
+        </>
       )}
     </div>
   );
