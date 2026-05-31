@@ -26,9 +26,10 @@ exports.getStock = (req, res) => {
 
 exports.getHistorique = (req, res) => {
   db.query(
-    `SELECT a.num_serie, a.date_attribution, a.date_retour, a.statut,
+    `SELECT a.num_serie, a.date_attribution, a.date_retour,
+            a.statut_avant, a.statut_apres,
             ag.nom, ag.prenom, ag.matricule_agent
-     FROM billetterie.appareil a
+     FROM billetterie.historique_appareil a
      LEFT JOIN base_global.agent ag ON a.matricule_agent = ag.matricule_agent
      ORDER BY a.date_attribution DESC`,
     (err, results) => {
@@ -89,12 +90,36 @@ exports.attribuer = (req, res) => {
   const { matricule_agent } = req.body;
   const num_serie = req.params.num_serie;
   const today = new Date().toISOString().split('T')[0];
+
+  // Lire le statut actuel avant modification
   db.query(
-    'UPDATE billetterie.appareil SET matricule_agent=?, statut=?, date_attribution=? WHERE num_serie=?',
-    [matricule_agent, 'actif', today, num_serie],
-    (err) => {
+    'SELECT statut FROM billetterie.appareil WHERE num_serie = ?',
+    [num_serie],
+    (err, rows) => {
       if (err) return res.json({ success: false, message: err.message });
-      res.json({ success: true, message: 'Appareil attribué avec succès' });
+      const statut_avant = rows[0]?.statut || null;
+      const statut_apres = 'actif';
+
+      db.query(
+        'UPDATE billetterie.appareil SET matricule_agent=?, statut=?, date_attribution=? WHERE num_serie=?',
+        [matricule_agent, statut_apres, today, num_serie],
+        (err2) => {
+          if (err2) return res.json({ success: false, message: err2.message });
+
+          // Log — matricule_agent toujours présent lors d'une attribution
+          db.query(
+            `INSERT INTO billetterie.historique_appareil
+               (num_serie, matricule_agent, date_attribution, statut_avant, statut_apres)
+             VALUES (?, ?, ?, ?, ?)`,
+            [num_serie, matricule_agent, today, statut_avant, statut_apres],
+            (err3) => {
+              if (err3) console.error('Erreur historique attribution:', err3.message);
+            }
+          );
+
+          res.json({ success: true, message: 'Appareil attribué avec succès' });
+        }
+      );
     }
   );
 };
@@ -105,30 +130,68 @@ exports.modifierStatut = (req, res) => {
   const today      = new Date().toISOString().split('T')[0];
   const doLiberer  = liberer === true || liberer === 'true';
 
-  if (doLiberer) {
-    db.query(
-      `UPDATE billetterie.appareil SET date_retour=? WHERE num_serie=? AND date_retour IS NULL`,
-      [today, num_serie],
-      (err) => {
-        if (err) console.error('Erreur historique retour:', err);
+  // Lire statut actuel + matricule_agent avant toute modification
+  // matricule_agent sera NULL si l'appareil est en panne ou en stocke (pas actif)
+  db.query(
+    'SELECT statut, matricule_agent FROM billetterie.appareil WHERE num_serie = ?',
+    [num_serie],
+    (err, rows) => {
+      if (err) return res.json({ success: false, message: err.message });
+
+      const statut_avant    = rows[0]?.statut || null;
+      // NULL si en panne / en stocke — MySQL accepte NULL grâce à l'ALTER TABLE
+      const matricule_agent = rows[0]?.matricule_agent || null;
+
+      const logHistorique = (matricule, statut_apres, callback) => {
         db.query(
-          'UPDATE billetterie.appareil SET statut=?, matricule_agent=NULL WHERE num_serie=?',
+          `INSERT INTO billetterie.historique_appareil
+             (num_serie, matricule_agent, date_attribution, date_retour, statut_avant, statut_apres)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            num_serie,
+            matricule || null,          // NULL accepté après ALTER TABLE
+            today,
+            doLiberer ? today : null,
+            statut_avant,
+            statut_apres,
+          ],
+          (logErr) => {
+            if (logErr) console.error('Erreur log historique statut:', logErr.message);
+            callback();
+          }
+        );
+      };
+
+      if (doLiberer) {
+        db.query(
+          `UPDATE billetterie.appareil SET date_retour=? WHERE num_serie=? AND date_retour IS NULL`,
+          [today, num_serie],
+          (err2) => {
+            if (err2) console.error('Erreur date_retour:', err2.message);
+            db.query(
+              'UPDATE billetterie.appareil SET statut=?, matricule_agent=NULL WHERE num_serie=?',
+              [statut, num_serie],
+              (err3) => {
+                if (err3) return res.json({ success: false, message: err3.message });
+                logHistorique(matricule_agent, statut, () => {
+                  res.json({ success: true, message: 'Statut modifié et agent libéré' });
+                });
+              }
+            );
+          }
+        );
+      } else {
+        db.query(
+          'UPDATE billetterie.appareil SET statut=? WHERE num_serie=?',
           [statut, num_serie],
           (err2) => {
             if (err2) return res.json({ success: false, message: err2.message });
-            res.json({ success: true, message: 'Statut modifié et agent libéré' });
+            logHistorique(matricule_agent, statut, () => {
+              res.json({ success: true, message: 'Statut modifié avec succès' });
+            });
           }
         );
       }
-    );
-  } else {
-    db.query(
-      'UPDATE billetterie.appareil SET statut=? WHERE num_serie=?',
-      [statut, num_serie],
-      (err) => {
-        if (err) return res.json({ success: false, message: err.message });
-        res.json({ success: true, message: 'Statut modifié avec succès' });
-      }
-    );
-  }
+    }
+  );
 };
