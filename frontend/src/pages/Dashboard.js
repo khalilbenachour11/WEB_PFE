@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import "../styles/global.css";
 import axios from "../api/axios";
 
-const PBI_DIRECTION = "https://app.powerbi.com/view?r=eyJrIjoiNTk5M2RhYjEtN2Q0MS00NTBjLWI4MDctZDY4YTVhNzZhMjk5IiwidCI6ImRiZDY2NjRkLTRlYjktNDZlYi05OWQ4LTVjNDNiYTE1M2M2MSIsImMiOjl9";
-const PBI_RECETTES  = "https://app.powerbi.com/view?r=eyJrIjoiYjM2Nzc1MDUtN2VmYy00ZjAwLTkyNjEtOTE1NjNmMmRlMzRlIiwidCI6ImRiZDY2NjRkLTRlYjktNDZlYi05OWQ4LTVjNDNiYTE1M2M2MSIsImMiOjl9";
+const PBI_DIRECTION = "https://app.powerbi.com/view?r=eyJrIjoiZThlOGZmYTQtMTZjZS00Y2FiLWFhMzItMWQwYmQyMDc3MmU2IiwidCI6ImRiZDY2NjRkLTRlYjktNDZlYi05OWQ4LTVjNDNiYTE1M2M2MSIsImMiOjl9";
+const PBI_RECETTES  = "https://app.powerbi.com/view?r=eyJrIjoiZmJlMTc2ODMtMjYwMS00ZTRiLWIyYWQtNmU5YzQxYmZjOTA3IiwidCI6ImRiZDY2NjRkLTRlYjktNDZlYi05OWQ4LTVjNDNiYTE1M2M2MSIsImMiOjl9";
 
 export default function Dashboard({ user }) {
   const [totalAgents, setTotalAgents] = useState(0);
