@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import "../styles/global.css";
 import axios from "../api/axios";
 
-const PBI_DIRECTION = "https://app.powerbi.com/view?r=eyJrIjoiZThlOGZmYTQtMTZjZS00Y2FiLWFhMzItMWQwYmQyMDc3MmU2IiwidCI6ImRiZDY2NjRkLTRlYjktNDZlYi05OWQ4LTVjNDNiYTE1M2M2MSIsImMiOjl9";
-const PBI_RECETTES  = "https://app.powerbi.com/view?r=eyJrIjoiZmJlMTc2ODMtMjYwMS00ZTRiLWIyYWQtNmU5YzQxYmZjOTA3IiwidCI6ImRiZDY2NjRkLTRlYjktNDZlYi05OWQ4LTVjNDNiYTE1M2M2MSIsImMiOjl9";
+const PBI_DIRECTION   = "https://app.powerbi.com/view?r=eyJrIjoiZThlOGZmYTQtMTZjZS00Y2FiLWFhMzItMWQwYmQyMDc3MmU2IiwidCI6ImRiZDY2NjRkLTRlYjktNDZlYi05OWQ4LTVjNDNiYTE1M2M2MSIsImMiOjl9";
+const PBI_RECETTES    = "https://app.powerbi.com/view?r=eyJrIjoiZmJlMTc2ODMtMjYwMS00ZTRiLWIyYWQtNmU5YzQxYmZjOTA3IiwidCI6ImRiZDY2NjRkLTRlYjktNDZlYi05OWQ4LTVjNDNiYTE1M2M2MSIsImMiOjl9";
+const PBI_PREDICTIONS = "https://app.powerbi.com/view?r=eyJrIjoiZmJlMTc2ODMtMjYwMS00ZTRiLWIyYWQtNmU5YzQxYmZjOTA3IiwidCI6ImRiZDY2NjRkLTRlYjktNDZlYi05OWQ4LTVjNDNiYTE1M2M2MSIsImMiOjl9";
 
 export default function Dashboard({ user }) {
   const [totalAgents, setTotalAgents] = useState(0);
@@ -77,10 +78,10 @@ export default function Dashboard({ user }) {
           style={{ cursor: "pointer" }}
         >
           <div className="card-icon-wrap">📋</div>
-          <div className="card-number" style={{ fontSize: "1.1rem", paddingTop: 6 }}>
-            Dashboard Direction
+          <div className="card-number" style={{ fontSize: "1.4rem", paddingTop: 6 }}>
+            Direction
           </div>
-          <div className="card-label">Exploitation</div>
+          <div className="card-label">Dashboard Exploitation</div>
           <div style={{ fontSize: "0.78rem", color: "var(--gray-400)", marginTop: 8, lineHeight: 1.4 }}>
             Voyages, agents, appareils et lignes de transport
           </div>
@@ -96,10 +97,10 @@ export default function Dashboard({ user }) {
           style={{ cursor: "pointer" }}
         >
           <div className="card-icon-wrap">💰</div>
-          <div className="card-number" style={{ fontSize: "1.1rem", paddingTop: 6 }}>
-            Dashboard Recettes
+          <div className="card-number" style={{ fontSize: "1.4rem", paddingTop: 6 }}>
+            Recettes
           </div>
-          <div className="card-label">Contrôle des recettes</div>
+          <div className="card-label">Dashboard Contrôleur</div>
           <div style={{ fontSize: "0.78rem", color: "var(--gray-400)", marginTop: 8, lineHeight: 1.4 }}>
             Recettes journalières, tickets vendus et anomalies
           </div>
@@ -108,29 +109,22 @@ export default function Dashboard({ user }) {
           </span>
         </div>
 
-        {/* Carte 3 — Prédictions */}
+        {/* Carte 3 — Prédictions (Power BI) */}
         <div
-          className="dashboard-card"
-          onClick={() => navigate("/predictions")}
-          style={{ cursor: "pointer", borderTop: "3px solid #7C3AED" }}
+          className="dashboard-card green"
+          onClick={() => window.open(PBI_PREDICTIONS, "_blank", "noopener,noreferrer")}
+          style={{ cursor: "pointer" }}
         >
-          <div className="card-icon-wrap" style={{ background: "rgba(124,58,237,0.1)" }}>
-            🔮
-          </div>
-          <div className="card-number" style={{ fontSize: "1.1rem", paddingTop: 6, color: "#5B21B6" }}>
+          <div className="card-icon-wrap">🔮</div>
+          <div className="card-number" style={{ fontSize: "1.4rem", paddingTop: 6 }}>
             Prédictions
           </div>
           <div className="card-label">Intelligence prédictive</div>
           <div style={{ fontSize: "0.78rem", color: "var(--gray-400)", marginTop: 8, lineHeight: 1.4 }}>
             Prévisions de recettes et tendances basées sur l'historique
           </div>
-          <span style={{
-            marginTop: 10, display: "inline-block",
-            padding: "3px 10px", borderRadius: 20,
-            fontSize: "0.72rem", fontWeight: 600,
-            background: "rgba(124,58,237,0.1)", color: "#5B21B6",
-          }}>
-            → Voir prédictions
+          <span className="badge-role controle" style={{ marginTop: 10, display: "inline-block" }}>
+            ↗ Ouvrir Power BI
           </span>
         </div>
 
