@@ -71,7 +71,7 @@ export default function Dashboard({ user }) {
       </div>
       <div className="dashboard-cards">
 
-        {/* Carte 1 — Dashboard Direction (Power BI) */}
+        {/* Dashboard Direction  */}
         <div
           className="dashboard-card blue"
           onClick={() => window.open(PBI_DIRECTION, "_blank", "noopener,noreferrer")}
@@ -90,7 +90,7 @@ export default function Dashboard({ user }) {
           </span>
         </div>
 
-        {/* Carte 2 — Dashboard Contrôleur des recettes (Power BI) */}
+        {/* Dashboard Contrôleur des recettes  */}
         <div
           className="dashboard-card gold"
           onClick={() => window.open(PBI_RECETTES, "_blank", "noopener,noreferrer")}
@@ -109,7 +109,7 @@ export default function Dashboard({ user }) {
           </span>
         </div>
 
-        {/* Carte 3 — Prédictions (Power BI) */}
+        {/* Prédictions  */}
         <div
           className="dashboard-card green"
           onClick={() => window.open(PBI_PREDICTIONS, "_blank", "noopener,noreferrer")}

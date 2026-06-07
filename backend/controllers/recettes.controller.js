@@ -11,7 +11,7 @@ exports.getRecettes = async (req, res) => {
       `SELECT a.matricule_agent, a.nom, a.prenom, COALESCE(SUM(tv.montant_total), 0) as total
        FROM base_global.agent a
        LEFT JOIN billetterie.ticket_vendu tv ON a.matricule_agent = tv.matricule_agent
-       WHERE a.role = 'agent'
+       WHERE a.role = 'receveur'
        GROUP BY a.matricule_agent, a.nom, a.prenom ORDER BY total DESC`,
     );
     const [parLigne] = await db.promise().query(
