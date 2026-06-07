@@ -73,7 +73,7 @@ exports.getJournees = async (req, res) => {
       JOIN billetterie.voyage v ON tv.id_voyage = v.id_voyage
       JOIN base_global.agent ag ON v.matricule_agent = ag.matricule_agent
       LEFT JOIN base_global.ligne l ON v.id_ligne = l.id_ligne
-      WHERE ag.role = 'agent'
+      WHERE ag.role = 'receveur'
         ${debut ? "AND DATE(tv.date_heure) >= ?" : ""}
         ${fin   ? "AND DATE(tv.date_heure) <= ?" : ""}
       GROUP BY

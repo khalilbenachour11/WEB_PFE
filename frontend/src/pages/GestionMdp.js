@@ -311,7 +311,7 @@ export default function GestionMdp() {
                     className={`action-btn ${agent.has_password ? "edit" : "add"}`}
                     onClick={() => setSelectedAgent(agent)}
                   >
-                    {agent.has_password ? "Modifier MDP" : "➕ Ajouter MDP"}
+                    {agent.has_password ? "Modifier MDP" : "Ajouter MDP"}
                   </button>
                 </td>
               </tr>
