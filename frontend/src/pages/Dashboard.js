@@ -124,7 +124,7 @@ export default function Dashboard({ user }) {
             Prévisions de recettes et tendances basées sur l'historique
           </div>
           <span className="badge-role controle" style={{ marginTop: 10, display: "inline-block" }}>
-            ↗ Ouvrir Power BI
+            ↗ Ouvrir Prediction 
           </span>
         </div>
 

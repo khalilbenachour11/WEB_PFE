@@ -22,7 +22,7 @@ import SyncMonitor from './pages/SyncMonitor';
 import GestionAnomalies from './pages/GestionAnomalies';
 
 export default function App() {
-  // ✅ No session restore — login required on every page reload
+  
   const [user, setUser] = useState(null);
 
   const handleLogin = useCallback((userData, token) => {

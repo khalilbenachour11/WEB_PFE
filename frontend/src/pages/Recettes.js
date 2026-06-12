@@ -5,18 +5,6 @@ import "../styles/global.css";
 
 import axios from "../api/axios";
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return "—";
-  const date = new Date(dateStr);
-  return date.toLocaleString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
 const formatDateOnly = (dateStr) => {
   if (!dateStr) return "—";
   const date = new Date(dateStr);
@@ -26,6 +14,12 @@ const formatDateOnly = (dateStr) => {
     year: "numeric",
   });
 };
+
+const msToDT = (ms) =>
+  (Number(ms || 0) / 1000).toLocaleString("fr-FR", {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }) + " DT";
 
 export default function Recettes() {
   const [data, setData] = useState(null);
@@ -50,14 +44,14 @@ export default function Recettes() {
         r.matricule_agent,
         r.prenom,
         r.nom,
-        Number(r.total),
+        Number(r.total) / 1000,
       ]),
     ]);
     XLSX.utils.book_append_sheet(wb, ws1, "Par Receveur");
 
     const ws2 = XLSX.utils.aoa_to_sheet([
       ["Ligne", "Total (DT)"],
-      ...data.parLigne.map((l) => [l.nom_ligne, Number(l.total)]),
+      ...data.parLigne.map((l) => [l.nom_ligne, Number(l.total) / 1000]),
     ]);
     XLSX.utils.book_append_sheet(wb, ws2, "Par Ligne");
 
@@ -65,7 +59,7 @@ export default function Recettes() {
       ["Date", "Total (DT)"],
       ...data.parDate.map((d) => [
         new Date(d.date).toLocaleDateString("fr-FR"),
-        Number(d.total),
+        Number(d.total) / 1000,
       ]),
     ]);
     XLSX.utils.book_append_sheet(wb, ws3, "Par Date");
@@ -90,7 +84,7 @@ export default function Recettes() {
         <div className="recettes-total-info">
           <div className="recettes-total-label">Recettes Total Global</div>
           <div className="recettes-total-amount">
-            {Number(data?.total_global || 0).toLocaleString("fr-FR")} DT
+            {msToDT(data?.total_global)}
           </div>
         </div>
       </div>
@@ -117,9 +111,7 @@ export default function Recettes() {
                   </td>
                   <td>{r.matricule_agent}</td>
                   <td>
-                    <span className="montant-badge">
-                      {Number(r.total).toLocaleString("fr-FR")} DT
-                    </span>
+                    <span className="montant-badge">{msToDT(r.total)}</span>
                   </td>
                 </tr>
               ))}
@@ -130,7 +122,7 @@ export default function Recettes() {
         {/* Par Ligne */}
         <div className="recettes-card">
           <div className="recettes-card-header">
-            <div className="recettes-card-title"> Recettes par Ligne</div>
+            <div className="recettes-card-title">Recettes par Ligne</div>
           </div>
           <table className="recettes-table">
             <thead>
@@ -144,9 +136,7 @@ export default function Recettes() {
                 <tr key={l.id_ligne}>
                   <td>{l.nom_ligne}</td>
                   <td>
-                    <span className="montant-badge">
-                      {Number(l.total).toLocaleString("fr-FR")} DT
-                    </span>
+                    <span className="montant-badge">{msToDT(l.total)}</span>
                   </td>
                 </tr>
               ))}
@@ -159,7 +149,6 @@ export default function Recettes() {
       <div className="recettes-card" style={{ marginBottom: 24 }}>
         <div className="recettes-card-header">
           <div className="recettes-card-title">
-            {" "}
             Recettes par Date (30 derniers jours)
           </div>
         </div>
@@ -175,9 +164,7 @@ export default function Recettes() {
               <tr key={d.date}>
                 <td>{formatDateOnly(d.date)}</td>
                 <td>
-                  <span className="montant-badge">
-                    {Number(d.total).toLocaleString("fr-FR")} DT
-                  </span>
+                  <span className="montant-badge">{msToDT(d.total)}</span>
                 </td>
               </tr>
             ))}

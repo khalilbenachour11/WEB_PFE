@@ -7,9 +7,7 @@ import Pagination from "../components/Pagination";
 import axios from "../api/axios";
 const ITEMS_PER_PAGE = 15;
 
-// ══════════════════════════════════════════════════════════════════════════════
-// UTILITAIRES
-// ══════════════════════════════════════════════════════════════════════════════
+
 
 const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
 

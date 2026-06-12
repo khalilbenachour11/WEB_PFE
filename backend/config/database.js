@@ -9,7 +9,7 @@ const db = mysql.createPool({
   multipleStatements: true,
   timezone:           '+01:00',        // ← client-side Africa/Tunis
   dateStrings:        true,            // ← CRITICAL: return DATETIME as "YYYY-MM-DD HH:MM:SS" strings
-                                       //   instead of JS Date objects, preventing any UTC conversion
+                                       
   waitForConnections: true,
   connectionLimit:    10,
   queueLimit:         0,

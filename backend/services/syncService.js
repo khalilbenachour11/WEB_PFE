@@ -99,9 +99,8 @@ async function upsertHeartbeat(payload) {
   // ── 2. Compute the effective counts ─────────────────────────────────────────
   // Use whichever is higher: what the app reports OR what's still open in DB.
   // This prevents a clean heartbeat (0,0) from erasing unresolved anomalies.
-  const effectiveFailed  = Math.max(Number(failed_count  ?? 0), openCounts.failed);
-  const effectivePending = Math.max(Number(pending_count ?? 0), openCounts.pending);
-
+  const effectiveFailed  = Number(failed_count  ?? 0);
+const effectivePending = Number(pending_count ?? 0);
   // ── 3. Upsert heartbeat row with effective counts ───────────────────────────
   // updated_at = NOW() here is intentional — a real heartbeat from the device
   // proves the agent is alive, so we do want to reset the online/offline clock.
@@ -149,7 +148,6 @@ async function upsertHeartbeat(payload) {
 
 async function syncAllStaleHeartbeats() {
   try {
-    // Process agents that have open anomaly placeholders
     const [anomalyAgents] = await db.promise().query(
       `SELECT matricule_agent,
               SUM(erreur LIKE 'Sync failed%')  AS failed_open,
@@ -164,50 +162,36 @@ async function syncAllStaleHeartbeats() {
       const failedOpen  = Number(row.failed_open  ?? 0);
       const pendingOpen = Number(row.pending_open ?? 0);
 
-      // Ensure placeholder rows match what's in agent_heartbeat
-      await ensurePlaceholderAnomalies(row.matricule_agent, pendingOpen, failedOpen);
-
-      // Raise heartbeat counts if they've fallen below the open anomaly count,
-      // but ONLY execute the UPDATE when values actually need to change.
-      // This prevents ON UPDATE CURRENT_TIMESTAMP from firing on every 30s tick
-      // and resetting updated_at — which would make offline agents appear online.
+      // Sync heartbeat counts DOWN to match actual open anomalies
       await db.promise().query(
         `UPDATE billetterie.agent_heartbeat
-         SET failed_count  = GREATEST(failed_count,  ?),
-             pending_count = GREATEST(pending_count, ?)
-         WHERE matricule_agent = ?
-           AND (failed_count < ? OR pending_count < ?)`,
-        [failedOpen, pendingOpen, row.matricule_agent, failedOpen, pendingOpen]
+         SET failed_count  = ?,
+             pending_count = ?
+         WHERE matricule_agent = ?`,
+        [failedOpen, pendingOpen, row.matricule_agent]
       );
     }
 
-    // Also process agents reported by heartbeat with counts > 0
-    const [heartbeatAgents] = await db.promise().query(
-      `SELECT matricule_agent, pending_count, failed_count
-       FROM billetterie.agent_heartbeat
-       WHERE failed_count > 0 OR pending_count > 0`
+    // ✅ Agents with NO open anomalies → reset their counts to 0
+    await db.promise().query(
+      `UPDATE billetterie.agent_heartbeat
+       SET failed_count = 0, pending_count = 0
+       WHERE matricule_agent NOT IN (
+         SELECT DISTINCT matricule_agent
+         FROM billetterie.ticket_anomalie
+         WHERE statut = 'non_traite'
+           AND erreur LIKE 'Sync %heartbeat automatique%'
+       )
+       AND (failed_count > 0 OR pending_count > 0)`
     );
 
-    for (const row of heartbeatAgents) {
-      await ensurePlaceholderAnomalies(
-        row.matricule_agent,
-        row.pending_count,
-        row.failed_count
-      );
-    }
-
-    const total = new Set([
-      ...anomalyAgents.map(r => r.matricule_agent),
-      ...heartbeatAgents.map(r => r.matricule_agent),
-    ]).size;
-
-    if (total > 0) {
-      console.log(`✅ syncAllStaleHeartbeats: ${total} agent(s) vérifiés.`);
-    }
+    const total = anomalyAgents.length;
+    console.log(`✅ syncAllStaleHeartbeats: ${total} agent(s) vérifiés.`);
   } catch (err) {
     console.error('❌ syncAllStaleHeartbeats error:', err.message);
   }
 }
+
 
 // ── getAllAgentsSnapshot ───────────────────────────────────────────────────────
 
